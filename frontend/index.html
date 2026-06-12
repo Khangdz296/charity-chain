@@ -51,6 +51,10 @@
           <span>Milestones</span>
           <strong id="milestoneCount">--</strong>
         </div>
+        <div class="metric">
+          <span>Funding Deadline</span>
+          <strong id="fundingDeadline">--</strong>
+        </div>
       </div>
     </section>
 
@@ -112,6 +116,11 @@
               <button type="submit">Donate</button>
             </div>
           </form>
+
+          <form id="refundForm" class="action-form compact-form">
+            <label>Request Refund (if funding failed)</label>
+            <button type="submit">Refund My Donation</button>
+          </form>
         </div>
 
         <div id="charity" class="tab-page">
@@ -121,6 +130,22 @@
             <label for="evidenceCid">Evidence IPFS CID</label>
             <input id="evidenceCid" type="text" placeholder="ipfs://bafy...">
             <button type="submit">Submit Milestone</button>
+          </form>
+
+          <form id="resubmitForm" class="action-form">
+            <label for="resubmitMilestoneId">Resubmit Disputed Milestone ID</label>
+            <input id="resubmitMilestoneId" type="number" min="0" step="1" placeholder="0">
+            <label for="resubmitEvidenceCid">New Evidence IPFS CID</label>
+            <input id="resubmitEvidenceCid" type="text" placeholder="ipfs://bafy...">
+            <button type="submit">Resubmit Milestone</button>
+          </form>
+
+          <form id="claimForm" class="action-form compact-form">
+            <label for="claimMilestoneId">Claim Released Milestone ID</label>
+            <div class="inline-control">
+              <input id="claimMilestoneId" type="number" min="0" step="1" placeholder="0">
+              <button type="submit">Claim Funds</button>
+            </div>
           </form>
         </div>
 

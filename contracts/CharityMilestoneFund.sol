@@ -25,6 +25,7 @@ contract CharityMilestoneFund {
     address payable public immutable charity;
     uint256 public immutable fundingGoal;
     uint256 public immutable challengePeriod;
+    uint256 public immutable fundingDeadline;
     address[3] public verifiers;
 
     uint256 public totalDonated;
@@ -35,12 +36,16 @@ contract CharityMilestoneFund {
     mapping(address => bool) public isVerifier;
     mapping(uint256 => mapping(address => bool)) public hasRejected;
     mapping(uint256 => mapping(address => bool)) public hasVotedResolve;
+    mapping(uint256 => bool) public milestoneClaimable;
+    mapping(uint256 => bool) public milestoneClaimed;
 
     event DonationReceived(address indexed donor, uint256 amount);
     event MilestoneSubmitted(uint256 indexed milestoneId, string evidenceCID);
     event MilestoneRejected(uint256 indexed milestoneId, address indexed verifier, string reason);
     event DisputeResolved(uint256 indexed milestoneId);
     event MilestoneReleased(uint256 indexed milestoneId, address indexed charity, uint256 amount);
+    event MilestoneClaimed(uint256 indexed milestoneId, address indexed charity, uint256 amount);
+    event DonationRefunded(address indexed donor, uint256 amount);
 
     modifier onlyCharity() {
         require(msg.sender == charity, "Only charity");
@@ -64,15 +69,18 @@ contract CharityMilestoneFund {
         address[3] memory _verifiers,
         uint256[] memory _amounts,
         string[] memory _purposes,
-        uint256 _challengePeriod
+        uint256 _challengePeriod,
+        uint256 _fundingDeadline
     ) {
         require(_charity != address(0), "Invalid charity");
         require(_amounts.length > 0, "No milestones");
         require(_amounts.length == _purposes.length, "Length mismatch");
         require(_challengePeriod > 0, "Invalid challenge period");
+        require(_fundingDeadline > block.timestamp, "Invalid funding deadline");
 
         charity = _charity;
         challengePeriod = _challengePeriod;
+        fundingDeadline = _fundingDeadline;
 
         for (uint256 i = 0; i < 3; i++) {
             require(_verifiers[i] != address(0), "Invalid verifier");
@@ -107,19 +115,52 @@ contract CharityMilestoneFund {
         donate();
     }
 
-    function donate() public payable {
+    function donate() public payable nonReentrant {
         require(msg.value > 0, "No ETH sent");
-        require(totalDonated + msg.value <= fundingGoal, "Funding goal exceeded");
+        require(block.timestamp <= fundingDeadline, "Funding deadline passed");
 
-        donations[msg.sender] += msg.value;
-        totalDonated += msg.value;
+        uint256 acceptableAmount = msg.value;
+        if (totalDonated + msg.value > fundingGoal) {
+            acceptableAmount = fundingGoal - totalDonated;
+            require(acceptableAmount > 0, "Funding goal already reached");
 
-        emit DonationReceived(msg.sender, msg.value);
+            // Refund excess
+            uint256 excess = msg.value - acceptableAmount;
+            (bool refunded, ) = payable(msg.sender).call{value: excess}("");
+            require(refunded, "Refund failed");
+        }
+
+        donations[msg.sender] += acceptableAmount;
+        totalDonated += acceptableAmount;
+
+        emit DonationReceived(msg.sender, acceptableAmount);
+    }
+
+    function refund() external nonReentrant {
+        require(block.timestamp > fundingDeadline, "Deadline not passed");
+        require(totalDonated < fundingGoal, "Goal was reached");
+
+        uint256 amount = donations[msg.sender];
+        require(amount > 0, "No donation to refund");
+
+        donations[msg.sender] = 0;
+        totalDonated -= amount;
+
+        (bool sent, ) = payable(msg.sender).call{value: amount}("");
+        require(sent, "Refund failed");
+
+        emit DonationRefunded(msg.sender, amount);
     }
 
     function submitMilestone(uint256 milestoneId, string calldata evidenceCID) external onlyCharity {
         require(totalDonated == fundingGoal, "Funding not complete");
         require(bytes(evidenceCID).length > 0, "Empty evidence CID");
+
+        // Enforce sequential milestone submission
+        if (milestoneId > 0) {
+            require(milestones[milestoneId - 1].state == MilestoneState.Released,
+                    "Previous milestone not released");
+        }
 
         Milestone storage milestone = _milestone(milestoneId);
         require(milestone.state == MilestoneState.Planned, "Invalid state");
@@ -134,7 +175,7 @@ contract CharityMilestoneFund {
     function reject(uint256 milestoneId, string calldata reason) external onlyVerifier {
         Milestone storage milestone = _milestone(milestoneId);
         require(milestone.state == MilestoneState.Submitted, "Not submitted");
-        require(block.timestamp <= milestone.submittedAt + challengePeriod, "Challenge period ended");
+        require(block.timestamp < milestone.submittedAt + challengePeriod, "Challenge period ended");
         require(!hasRejected[milestoneId][msg.sender], "Already rejected");
         require(bytes(reason).length > 0, "Empty reason");
 
@@ -145,6 +186,27 @@ contract CharityMilestoneFund {
         emit MilestoneRejected(milestoneId, msg.sender, reason);
     }
 
+    function resubmitMilestone(uint256 milestoneId, string calldata newEvidenceCID) external onlyCharity {
+        Milestone storage milestone = _milestone(milestoneId);
+        require(milestone.state == MilestoneState.Disputed, "Not disputed");
+        require(bytes(newEvidenceCID).length > 0, "Empty evidence CID");
+
+        // Reset dispute state
+        milestone.evidenceCID = newEvidenceCID;
+        milestone.submittedAt = block.timestamp;
+        milestone.rejectCount = 0;
+        milestone.resolveVoteCount = 0;
+        milestone.state = MilestoneState.Submitted;
+
+        // Clear rejection and resolve votes
+        for (uint256 i = 0; i < 3; i++) {
+            hasRejected[milestoneId][verifiers[i]] = false;
+            hasVotedResolve[milestoneId][verifiers[i]] = false;
+        }
+
+        emit MilestoneSubmitted(milestoneId, newEvidenceCID);
+    }
+
     function voteResolve(uint256 milestoneId) external onlyVerifier {
         Milestone storage milestone = _milestone(milestoneId);
         require(milestone.state == MilestoneState.Disputed, "Not disputed");
@@ -153,7 +215,7 @@ contract CharityMilestoneFund {
         hasVotedResolve[milestoneId][msg.sender] = true;
         milestone.resolveVoteCount += 1;
 
-        if (milestone.resolveVoteCount >= 2) {
+        if (milestone.resolveVoteCount >= 3) {
             milestone.state = MilestoneState.Approved;
             emit DisputeResolved(milestoneId);
         }
@@ -167,15 +229,28 @@ contract CharityMilestoneFund {
             && block.timestamp > milestone.submittedAt + challengePeriod;
         bool disputeApproved = milestone.state == MilestoneState.Approved;
         require(optimisticApproved || disputeApproved, "Not releasable");
-        require(address(this).balance >= milestone.amount, "Insufficient balance");
 
-        uint256 amount = milestone.amount;
         milestone.state = MilestoneState.Released;
+        milestoneClaimable[milestoneId] = true;
+
+        emit MilestoneReleased(milestoneId, charity, milestone.amount);
+    }
+
+    function claimMilestone(uint256 milestoneId) external nonReentrant {
+        require(msg.sender == charity, "Only charity");
+        require(milestoneClaimable[milestoneId], "Not claimable");
+        require(!milestoneClaimed[milestoneId], "Already claimed");
+
+        Milestone storage milestone = _milestone(milestoneId);
+        uint256 amount = milestone.amount;
+        require(address(this).balance >= amount, "Insufficient balance");
+
+        milestoneClaimed[milestoneId] = true;
 
         (bool sent, ) = charity.call{value: amount}("");
         require(sent, "Transfer failed");
 
-        emit MilestoneReleased(milestoneId, charity, amount);
+        emit MilestoneClaimed(milestoneId, charity, amount);
     }
 
     function milestoneCount() external view returns (uint256) {
