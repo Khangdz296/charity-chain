@@ -8,6 +8,7 @@ De tai: **Nghien cuu ung dung cong nghe Blockchain nham nang cao tinh minh bach 
 - [docs/bao_cao_do_an.md](docs/bao_cao_do_an.md): ban thao bao cao do an day du.
 - [docs/thiet_ke_smart_contract.md](docs/thiet_ke_smart_contract.md): dac ta thiet ke smart contract.
 - [docs/kich_ban_demo.md](docs/kich_ban_demo.md): kich ban thao tac demo tren Remix.
+- [docs/demo_hardhat_local.md](docs/demo_hardhat_local.md): huong dan demo bang Hardhat local, MetaMask va frontend.
 - [contracts/CharityMilestoneFund.sol](contracts/CharityMilestoneFund.sol): smart contract demo cho mo hinh giai ngan theo milestone.
 - [frontend/index.html](frontend/index.html): frontend web ket noi MetaMask de thao tac voi contract.
 - [diagrams/flowchart.md](diagrams/flowchart.md): so do luong xu ly milestone bang Mermaid.
@@ -42,13 +43,13 @@ Tang Stake & Slashing, hau kiem ngau nhien va danh tieng on-chain duoc trinh bay
 
 ## Cach chay frontend
 
-Sau khi deploy contract bang Remix, copy dia chi contract roi mo:
+Neu demo local bang Hardhat, xem chi tiet tai [docs/demo_hardhat_local.md](docs/demo_hardhat_local.md).
+
+Chay frontend:
 
 ```text
 http://127.0.0.1:5500
 ```
-
-Chay frontend local bang:
 
 ```powershell
 npm.cmd run frontend

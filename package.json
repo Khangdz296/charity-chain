@@ -1,12 +1,17 @@
 {
   "scripts": {
     "frontend": "node frontend/server.mjs",
-    "compile": "solcjs --bin --abi contracts\\CharityMilestoneFund.sol -o build"
+    "compile": "solcjs --bin --abi contracts\\CharityMilestoneFund.sol -o build",
+    "hardhat:compile": "hardhat compile",
+    "node": "hardhat node --hostname 127.0.0.1",
+    "deploy:local": "hardhat run scripts/deploy-local.js --network localhost"
   },
   "dependencies": {
     "ethers": "^6.16.0"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^3.1.2",
+    "hardhat": "^2.26.3",
     "solc": "^0.8.35"
   }
 }

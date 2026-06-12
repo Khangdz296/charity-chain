@@ -42,6 +42,7 @@ const ui = {
   totalDonated: $("totalDonated"),
   milestoneCount: $("milestoneCount"),
   accountText: $("accountText"),
+  walletBalanceText: $("walletBalanceText"),
   charityText: $("charityText"),
   verifierText: $("verifierText"),
   donateForm: $("donateForm"),
@@ -129,6 +130,7 @@ async function connectWallet() {
   }
 
   renderAccount();
+  await refreshWalletBalance();
   log(`Da ket noi ${shortAddress(state.account)}`, "success");
 }
 
@@ -147,6 +149,11 @@ async function loadContract() {
   }
 
   const runner = state.signer || state.provider;
+  const code = await state.provider.getCode(address);
+  if (code === "0x") {
+    throw new Error("Khong tim thay contract o dia chi nay tren network hien tai. Hay kiem tra MetaMask dang o Hardhat Local va dung dia chi Contract moi deploy.");
+  }
+
   state.contract = new window.ethers.Contract(address, CONTRACT_ABI, runner);
 
   await refreshSummary();
@@ -174,7 +181,18 @@ async function refreshSummary() {
   if (state.account) {
     const isVerifier = await contract.isVerifier(state.account);
     ui.verifierText.textContent = isVerifier ? "Dung vai tro verifier" : "Khong phai verifier";
+    await refreshWalletBalance();
   }
+}
+
+async function refreshWalletBalance() {
+  if (!state.provider || !state.account) {
+    ui.walletBalanceText.textContent = "-- ETH";
+    return;
+  }
+
+  const balance = await state.provider.getBalance(state.account);
+  ui.walletBalanceText.textContent = `${formatEth(balance)} ETH`;
 }
 
 async function loadMilestones() {
@@ -241,6 +259,9 @@ async function sendTx(action, label) {
 function renderAccount() {
   ui.accountText.textContent = state.account ? shortAddress(state.account) : "Chua ket noi";
   ui.networkBadge.textContent = state.chainId ? `Chain ${state.chainId}` : "Chua ket noi";
+  if (!state.account) {
+    ui.walletBalanceText.textContent = "-- ETH";
+  }
 }
 
 function escapeHtml(value) {
