@@ -3,18 +3,26 @@ const CONTRACT_ABI = [
   "function fundingGoal() view returns (uint256)",
   "function totalDonated() view returns (uint256)",
   "function milestoneCount() view returns (uint256)",
+  "function fundingDeadline() view returns (uint256)",
   "function isVerifier(address) view returns (bool)",
+  "function milestoneClaimable(uint256) view returns (bool)",
+  "function milestoneClaimed(uint256) view returns (bool)",
   "function getMilestone(uint256) view returns (uint256 amount,string purpose,string evidenceCID,uint256 submittedAt,uint8 rejectCount,uint8 resolveVoteCount,uint8 state)",
   "function donate() payable",
+  "function refund()",
   "function submitMilestone(uint256 milestoneId,string evidenceCID)",
+  "function resubmitMilestone(uint256 milestoneId,string newEvidenceCID)",
   "function reject(uint256 milestoneId,string reason)",
   "function voteResolve(uint256 milestoneId)",
   "function release(uint256 milestoneId)",
+  "function claimMilestone(uint256 milestoneId)",
   "event DonationReceived(address indexed donor,uint256 amount)",
+  "event DonationRefunded(address indexed donor,uint256 amount)",
   "event MilestoneSubmitted(uint256 indexed milestoneId,string evidenceCID)",
   "event MilestoneRejected(uint256 indexed milestoneId,address indexed verifier,string reason)",
   "event DisputeResolved(uint256 indexed milestoneId)",
-  "event MilestoneReleased(uint256 indexed milestoneId,address indexed charity,uint256 amount)"
+  "event MilestoneReleased(uint256 indexed milestoneId,address indexed charity,uint256 amount)",
+  "event MilestoneClaimed(uint256 indexed milestoneId,address indexed charity,uint256 amount)"
 ];
 
 const STATE_NAMES = ["Planned", "Submitted", "Disputed", "Approved", "Released"];
@@ -41,15 +49,22 @@ const ui = {
   fundingGoal: $("fundingGoal"),
   totalDonated: $("totalDonated"),
   milestoneCount: $("milestoneCount"),
+  fundingDeadline: $("fundingDeadline"),
   accountText: $("accountText"),
   walletBalanceText: $("walletBalanceText"),
   charityText: $("charityText"),
   verifierText: $("verifierText"),
   donateForm: $("donateForm"),
   donateAmount: $("donateAmount"),
+  refundForm: $("refundForm"),
   submitForm: $("submitForm"),
   submitMilestoneId: $("submitMilestoneId"),
   evidenceCid: $("evidenceCid"),
+  resubmitForm: $("resubmitForm"),
+  resubmitMilestoneId: $("resubmitMilestoneId"),
+  resubmitEvidenceCid: $("resubmitEvidenceCid"),
+  claimForm: $("claimForm"),
+  claimMilestoneId: $("claimMilestoneId"),
   rejectForm: $("rejectForm"),
   rejectMilestoneId: $("rejectMilestoneId"),
   rejectReason: $("rejectReason"),
@@ -165,11 +180,12 @@ async function refreshSummary() {
   ui.contractShort.textContent = shortAddress(state.contractAddress);
   ui.contractAddress.value = state.contractAddress;
 
-  const [charity, goal, donated, count] = await Promise.all([
+  const [charity, goal, donated, count, deadline] = await Promise.all([
     contract.charity(),
     contract.fundingGoal(),
     contract.totalDonated(),
-    contract.milestoneCount()
+    contract.milestoneCount(),
+    contract.fundingDeadline()
   ]);
 
   state.milestoneCount = Number(count);
@@ -177,6 +193,9 @@ async function refreshSummary() {
   ui.fundingGoal.textContent = `${formatEth(goal)} ETH`;
   ui.totalDonated.textContent = `${formatEth(donated)} ETH`;
   ui.milestoneCount.textContent = String(state.milestoneCount);
+
+  const deadlineDate = new Date(Number(deadline) * 1000);
+  ui.fundingDeadline.textContent = deadlineDate.toLocaleString();
 
   if (state.account) {
     const isVerifier = await contract.isVerifier(state.account);
@@ -206,11 +225,13 @@ async function loadMilestones() {
 
   for (let index = 0; index < state.milestoneCount; index++) {
     const milestone = await state.contract.getMilestone(index);
-    ui.milestoneList.appendChild(renderMilestoneCard(index, milestone));
+    const claimable = await state.contract.milestoneClaimable(index);
+    const claimed = await state.contract.milestoneClaimed(index);
+    ui.milestoneList.appendChild(renderMilestoneCard(index, milestone, claimable, claimed));
   }
 }
 
-function renderMilestoneCard(index, milestone) {
+function renderMilestoneCard(index, milestone, claimable, claimed) {
   const card = document.createElement("article");
   card.className = "milestone-card";
 
@@ -221,6 +242,8 @@ function renderMilestoneCard(index, milestone) {
   const stateId = Number(milestone.state);
   const stateName = STATE_NAMES[stateId] || "Unknown";
 
+  const claimStatus = claimed ? "✅ Claimed" : (claimable ? "🔓 Claimable" : "🔒 Not claimable");
+
   card.innerHTML = `
     <header>
       <h2>Milestone #${index}</h2>
@@ -230,12 +253,15 @@ function renderMilestoneCard(index, milestone) {
     <div class="milestone-meta">
       <span>${formatEth(milestone.amount)} ETH</span>
       <span>Reject: ${Number(milestone.rejectCount)}</span>
-      <span>Resolve: ${Number(milestone.resolveVoteCount)}/2</span>
+      <span>Resolve: ${Number(milestone.resolveVoteCount)}/3</span>
     </div>
     <div class="milestone-meta">
       <span>${escapeHtml(submitted)}</span>
       <span>${escapeHtml(milestone.evidenceCID || "No CID submitted")}</span>
       <span>ID: ${index}</span>
+    </div>
+    <div class="milestone-meta">
+      <span style="font-weight: bold;">${claimStatus}</span>
     </div>
   `;
 
@@ -302,12 +328,45 @@ function bindEvents() {
     });
   });
 
+  ui.refundForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    run(async () => {
+      await sendTx(
+        (contract) => contract.refund(),
+        "Refund"
+      );
+      await refreshSummary();
+    });
+  });
+
   ui.submitForm.addEventListener("submit", (event) => {
     event.preventDefault();
     run(async () => {
       await sendTx(
         (contract) => contract.submitMilestone(ui.submitMilestoneId.value, ui.evidenceCid.value.trim()),
         "Submit milestone"
+      );
+      await loadMilestones();
+    });
+  });
+
+  ui.resubmitForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    run(async () => {
+      await sendTx(
+        (contract) => contract.resubmitMilestone(ui.resubmitMilestoneId.value, ui.resubmitEvidenceCid.value.trim()),
+        "Resubmit milestone"
+      );
+      await loadMilestones();
+    });
+  });
+
+  ui.claimForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    run(async () => {
+      await sendTx(
+        (contract) => contract.claimMilestone(ui.claimMilestoneId.value),
+        "Claim milestone"
       );
       await loadMilestones();
     });

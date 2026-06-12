@@ -1,6 +1,7 @@
 const { ethers } = require("hardhat");
 
 const challengePeriod = 60;
+const fundingDeadline = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60; // 7 days from now
 
 async function main() {
   const [deployer, charity, verifier1, verifier2, verifier3, donor] = await ethers.getSigners();
@@ -27,7 +28,8 @@ async function main() {
     verifierAddresses,
     amounts,
     purposes,
-    challengePeriod
+    challengePeriod,
+    fundingDeadline
   );
 
   await fund.waitForDeployment();
@@ -39,6 +41,7 @@ async function main() {
   console.log("Contract:", address);
   console.log("Funding goal:", ethers.formatEther(fundingGoal), "ETH");
   console.log("Challenge period:", challengePeriod, "seconds");
+  console.log("Funding deadline:", new Date(fundingDeadline * 1000).toISOString());
   console.log("");
   console.log("Demo accounts");
   console.log("Deployer :", await deployer.getAddress());
