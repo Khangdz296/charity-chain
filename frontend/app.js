@@ -76,16 +76,16 @@ function hasEthers() {
 
 function requireWallet() {
   if (!window.ethereum) {
-    throw new Error("Chua co MetaMask hoac vi EVM trong trinh duyet.");
+    throw new Error("MetaMask or an EVM wallet was not detected in this browser.");
   }
   if (!hasEthers()) {
-    throw new Error("Khong tai duoc ethers.js.");
+    throw new Error("ethers.js could not be loaded.");
   }
 }
 
 function requireContract() {
   if (!state.contract) {
-    throw new Error("Nhap dia chi contract va bam Tai contract truoc.");
+    throw new Error("Enter a contract address and load the contract first.");
   }
   return state.contract;
 }
@@ -106,7 +106,7 @@ function formatEth(value) {
 function parseEth(value) {
   const text = String(value || "").trim();
   if (!/^\d+(\.\d{1,18})?$/.test(text)) {
-    throw new Error("So ETH khong hop le.");
+    throw new Error("Invalid ETH amount.");
   }
   return window.ethers.parseEther(text);
 }
@@ -131,14 +131,14 @@ async function connectWallet() {
 
   renderAccount();
   await refreshWalletBalance();
-  log(`Da ket noi ${shortAddress(state.account)}`, "success");
+  log(`Connected ${shortAddress(state.account)}`, "success");
 }
 
 async function loadContract() {
   requireWallet();
   const address = ui.contractAddress.value.trim();
   if (!isAddress(address)) {
-    throw new Error("Dia chi contract khong hop le.");
+    throw new Error("Invalid contract address.");
   }
 
   state.contractAddress = address;
@@ -151,13 +151,13 @@ async function loadContract() {
   const runner = state.signer || state.provider;
   const code = await state.provider.getCode(address);
   if (code === "0x") {
-    throw new Error("Khong tim thay contract o dia chi nay tren network hien tai. Hay kiem tra MetaMask dang o Hardhat Local va dung dia chi Contract moi deploy.");
+    throw new Error("No contract code was found at this address on the current network. Check that MetaMask is on Hardhat Local and that you pasted the latest deployed contract address.");
   }
 
   state.contract = new window.ethers.Contract(address, CONTRACT_ABI, runner);
 
   await refreshSummary();
-  log("Da tai thong tin contract.", "success");
+  log("Contract loaded.", "success");
 }
 
 async function refreshSummary() {
@@ -180,7 +180,7 @@ async function refreshSummary() {
 
   if (state.account) {
     const isVerifier = await contract.isVerifier(state.account);
-    ui.verifierText.textContent = isVerifier ? "Dung vai tro verifier" : "Khong phai verifier";
+    ui.verifierText.textContent = isVerifier ? "Verifier account" : "Not a verifier";
     await refreshWalletBalance();
   }
 }
@@ -200,7 +200,7 @@ async function loadMilestones() {
   ui.milestoneList.innerHTML = "";
 
   if (state.milestoneCount === 0) {
-    ui.milestoneList.textContent = "Chua co milestone.";
+    ui.milestoneList.textContent = "No milestones found.";
     return;
   }
 
@@ -217,7 +217,7 @@ function renderMilestoneCard(index, milestone) {
   const submittedAt = BigInt(milestone.submittedAt);
   const submitted = submittedAt > 0n
     ? new Date(Number(submittedAt) * 1000).toLocaleString()
-    : "Chua submit";
+    : "Not submitted";
   const stateId = Number(milestone.state);
   const stateName = STATE_NAMES[stateId] || "Unknown";
 
@@ -234,7 +234,7 @@ function renderMilestoneCard(index, milestone) {
     </div>
     <div class="milestone-meta">
       <span>${escapeHtml(submitted)}</span>
-      <span>${escapeHtml(milestone.evidenceCID || "Chua co CID")}</span>
+      <span>${escapeHtml(milestone.evidenceCID || "No CID submitted")}</span>
       <span>ID: ${index}</span>
     </div>
   `;
@@ -253,12 +253,12 @@ async function sendTx(action, label) {
   const tx = await action(state.contract);
   log(`${label}: ${tx.hash}`, "success");
   const receipt = await tx.wait();
-  log(`Da xac nhan block ${receipt.blockNumber}`, "success");
+  log(`Confirmed in block ${receipt.blockNumber}`, "success");
 }
 
 function renderAccount() {
-  ui.accountText.textContent = state.account ? shortAddress(state.account) : "Chua ket noi";
-  ui.networkBadge.textContent = state.chainId ? `Chain ${state.chainId}` : "Chua ket noi";
+  ui.accountText.textContent = state.account ? shortAddress(state.account) : "Not connected";
+  ui.networkBadge.textContent = state.chainId ? `Chain ${state.chainId}` : "Not connected";
   if (!state.account) {
     ui.walletBalanceText.textContent = "-- ETH";
   }
@@ -363,7 +363,7 @@ function bindEvents() {
       state.signer = null;
       state.contract = null;
       renderAccount();
-      log("Da doi network, hay ket noi lai contract.");
+      log("Network changed. Please reconnect and reload the contract.");
     });
   }
 }
@@ -390,9 +390,9 @@ function init() {
   bindEvents();
   renderAccount();
   if (!window.ethereum) {
-    log("Chua phat hien MetaMask. Van co the xem giao dien, nhung can vi de giao dich.", "error");
+    log("MetaMask was not detected. The interface can be viewed, but transactions require a wallet.", "error");
   } else {
-    log("Frontend san sang.");
+    log("Frontend ready.");
   }
 }
 

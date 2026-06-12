@@ -6,6 +6,7 @@ De tai: **Nghien cuu ung dung cong nghe Blockchain nham nang cao tinh minh bach 
 
 - [PLAN.md](PLAN.md): ke hoach ban dau va mo hinh Layered Trust Model.
 - [docs/bao_cao_do_an.md](docs/bao_cao_do_an.md): ban thao bao cao do an day du.
+- [docs/bao_cao_hoan_chinh.md](docs/bao_cao_hoan_chinh.md): ban bao cao hoan chinh de nop/copy sang Word.
 - [docs/thiet_ke_smart_contract.md](docs/thiet_ke_smart_contract.md): dac ta thiet ke smart contract.
 - [docs/kich_ban_demo.md](docs/kich_ban_demo.md): kich ban thao tac demo tren Remix.
 - [docs/demo_hardhat_local.md](docs/demo_hardhat_local.md): huong dan demo bang Hardhat local, MetaMask va frontend.
