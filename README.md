@@ -1,94 +1,250 @@
-# Do an Blockchain: Minh bach dong tien tu thien
+# Charity Chain
 
-De tai: **Nghien cuu ung dung cong nghe Blockchain nham nang cao tinh minh bach trong quan ly dong tien tu thien**.
+Đồ án: **Nghiên cứu ứng dụng công nghệ Blockchain nhằm nâng cao tính minh bạch trong quản lý dòng tiền từ thiện**.
 
-## Noi dung trong thu muc
+Project triển khai mô hình quản lý quỹ từ thiện bằng smart contract. Donor gửi tiền vào contract, charity chỉ được nhận tiền theo từng milestone đã khai báo trước, verifier có quyền phản đối khi chứng từ có vấn đề, và toàn bộ trạng thái được ghi vết on-chain.
 
-- [PLAN.md](PLAN.md): ke hoach ban dau va mo hinh Layered Trust Model.
-- [docs/bao_cao_do_an.md](docs/bao_cao_do_an.md): ban thao bao cao do an day du.
-- [docs/bao_cao_hoan_chinh.md](docs/bao_cao_hoan_chinh.md): ban bao cao hoan chinh de nop/copy sang Word.
-- [docs/thiet_ke_smart_contract.md](docs/thiet_ke_smart_contract.md): dac ta thiet ke smart contract.
-- [docs/kich_ban_demo.md](docs/kich_ban_demo.md): kich ban thao tac demo tren Remix.
-- [docs/demo_hardhat_local.md](docs/demo_hardhat_local.md): huong dan demo bang Hardhat local, MetaMask va frontend.
-- [contracts/CharityMilestoneFund.sol](contracts/CharityMilestoneFund.sol): smart contract demo cho mo hinh giai ngan theo milestone.
-- [frontend/index.html](frontend/index.html): frontend web ket noi MetaMask de thao tac voi contract.
-- [diagrams/flowchart.md](diagrams/flowchart.md): so do luong xu ly milestone bang Mermaid.
-- [diagrams/sequence.md](diagrams/sequence.md): sequence diagram cho quy trinh submit, reject, resolve, release.
-- [appendix/huong_dan_bao_ve.md](appendix/huong_dan_bao_ve.md): cau hoi bao ve thuong gap va goi y tra loi.
+## Tính Năng Chính
 
-## Pham vi trien khai
+- Smart contract Solidity quản lý quỹ theo milestone.
+- Cố định funding goal, milestone amount, milestone purpose và verifier khi deploy.
+- Charity submit bằng chứng qua IPFS CID.
+- Challenge period cho verifier phản đối.
+- Cơ chế dispute: chỉ cần 1 verifier reject, cần 2/3 verifier vote resolve để tiếp tục release.
+- Frontend dark dashboard bằng HTML/CSS/JavaScript, kết nối MetaMask qua `ethers.js`.
+- Demo local bằng Hardhat, không cần testnet, faucet hoặc tiền thật.
 
-Do an tap trung code hai tang chinh:
+## Công Nghệ
 
-1. **Khung minh bach co dinh**: muc tieu quy, danh sach milestone, so tien, muc dich va verifier duoc khai bao khi trien khai contract.
-2. **Multi-verifier + optimistic release**: to chuc tu thien submit bang chung, verifier co thoi gian phan doi, neu khong co phan doi thi tien duoc giai ngan tu dong; neu co phan doi thi can 2/3 verifier bo phieu xu ly tranh chap.
+- Solidity `0.8.24`
+- Hardhat `2.x`
+- ethers.js `6.x`
+- MetaMask
+- HTML/CSS/JavaScript
+- IPFS/Pinata cho chứng từ off-chain
 
-Tang Stake & Slashing, hau kiem ngau nhien va danh tieng on-chain duoc trinh bay nhu huong mo rong/ho tro ly luan.
-
-## Cach demo nhanh bang Remix
-
-1. Mo <https://remix.ethereum.org>.
-2. Tao file `CharityMilestoneFund.sol`.
-3. Dan noi dung tu [contracts/CharityMilestoneFund.sol](contracts/CharityMilestoneFund.sol).
-4. Compile bang Solidity `0.8.24` hoac moi hon.
-5. Deploy voi tham so vi du:
-   - `_charity`: dia chi vi to chuc tu thien.
-   - `_verifiers`: 3 dia chi vi verifier khac nhau.
-   - `_amounts`: `[1000000000000000000, 2000000000000000000]`.
-   - `_purposes`: `["Mua nhu yeu pham dot 1", "Ho tro y te dot 2"]`.
-   - `_challengePeriod`: `300` de demo nhanh, thay vi 72 gio.
-6. Goi `donate()` tu donor cho den khi dat `fundingGoal`.
-7. To chuc tu thien goi `submitMilestone(0, "ipfs://...")`.
-8. Neu khong co verifier phan doi, cho het challenge period roi goi `release(0)`.
-9. Neu verifier goi `reject(0, "...")`, milestone chuyen sang `Disputed`; can 2 verifier goi `voteResolve(0)` roi moi `release(0)`.
-
-## Cach chay frontend
-
-Neu demo local bang Hardhat, xem chi tiet tai [docs/demo_hardhat_local.md](docs/demo_hardhat_local.md).
-
-Chay frontend:
+## Cấu Trúc Thư Mục
 
 ```text
-http://127.0.0.1:5500
+.
+├── contracts/
+│   └── CharityMilestoneFund.sol
+├── frontend/
+│   ├── index.html
+│   ├── app.js
+│   ├── styles.css
+│   ├── server.mjs
+│   └── vendor/
+├── scripts/
+│   └── deploy-local.js
+├── docs/
+│   ├── bao_cao_hoan_chinh.md
+│   ├── demo_hardhat_local.md
+│   ├── thiet_ke_smart_contract.md
+│   └── kich_ban_demo.md
+├── diagrams/
+├── appendix/
+├── hardhat.config.js
+├── package.json
+└── PLAN.md
 ```
+
+## Cài Đặt
+
+Cài dependency:
 
 ```powershell
-npm.cmd run frontend
+npm.cmd install
 ```
 
-Tren giao dien:
+Compile contract bằng Hardhat:
 
-1. Bam `Ket noi vi`.
-2. Dan dia chi contract vao o `Dia chi contract`.
-3. Bam `Tai contract`.
-4. Dung cac tab `Donor`, `Charity`, `Verifier`, `Milestones` de thao tac.
+```powershell
+npm.cmd run hardhat:compile
+```
 
-Frontend dung MetaMask va file `frontend/vendor/ethers.umd.min.js` da duoc luu local, nen khong can tai CDN khi mo trang.
-
-## Compile test tren may local
-
-May can co Node.js. Co the compile contract bang:
+Compile ABI/BIN bằng `solcjs` nếu cần:
 
 ```powershell
 npm.cmd run compile
 ```
 
-Khi compile thanh cong, thu muc `build/` se co:
+## Demo Local Bằng Hardhat
 
-- `contracts_CharityMilestoneFund_sol_CharityMilestoneFund.abi`
-- `contracts_CharityMilestoneFund_sol_CharityMilestoneFund.bin`
+### 1. Chạy blockchain local
 
-## Test da thuc hien
+Mở terminal 1:
 
-- `node --check frontend\app.js`: JavaScript hop le ve cu phap.
-- `npm.cmd run compile`: Solidity compile thanh cong.
+```powershell
+npm.cmd run node
+```
 
-## Ghi chu bao ve
+Giữ terminal này mở trong suốt lúc demo. Hardhat sẽ in ra danh sách account test và private key. Đây là ví local, chỉ dùng để demo.
 
-Blockchain trong do an khong duoc trinh bay nhu cong cu bao dam su that tuyet doi. Vai tro chinh cua he thong la:
+### 2. Thêm network vào MetaMask
 
-- cong khai ke hoach su dung tien truoc khi nhan dong gop;
-- tao dau vet bat bien cho tung quyet dinh;
-- giam kha nang tu y thay doi muc dich su dung;
-- tang chi phi va rui ro danh tieng khi co hanh vi thong dong;
-- ho tro kiem toan/hau kiem bang du lieu co the truy vet.
+Trong MetaMask, thêm network thủ công:
+
+```text
+Network name: Hardhat Local
+RPC URL: http://localhost:8545
+Chain ID: 31337
+Currency symbol: ETH
+```
+
+Import các private key Hardhat vào MetaMask để dùng làm donor, charity và verifier.
+
+### 3. Deploy contract
+
+Mở terminal 2:
+
+```powershell
+npm.cmd run deploy:local
+```
+
+Lệnh này sẽ in ra địa chỉ contract:
+
+```text
+Contract: 0x...
+```
+
+Copy địa chỉ này để dán vào frontend.
+
+### 4. Chạy frontend
+
+Mở terminal 3:
+
+```powershell
+npm.cmd run frontend
+```
+
+Mở trình duyệt:
+
+```text
+http://127.0.0.1:5500
+```
+
+Trên giao diện:
+
+1. Bấm `Connect Wallet`.
+2. Dán địa chỉ contract vào `Contract Address`.
+3. Bấm `Load Contract`.
+4. Dùng các tab `Donor`, `Charity`, `Verifier`, `Milestones` để demo.
+
+## Tài Khoản Demo
+
+Script deploy dùng các account Hardhat theo vai trò:
+
+```text
+Account #0: Deployer
+Account #1: Charity
+Account #2: Verifier 1
+Account #3: Verifier 2
+Account #4: Verifier 3
+Account #5: Donor
+```
+
+Donor không bị giới hạn trong contract, nên có thể dùng bất kỳ account Hardhat nào có ETH để donate.
+
+## Kịch Bản Demo
+
+### Kịch bản 1: Giải ngân bình thường
+
+1. Chọn ví donor trong MetaMask.
+2. Tab `Donor`: donate `0.02 ETH`.
+3. Chọn ví charity.
+4. Tab `Charity`: submit milestone `0` với CID, ví dụ `ipfs://demo-milestone-0`.
+5. Chờ hết challenge period.
+6. Tab `Milestones`: release milestone `0`.
+
+Ý nghĩa: nếu không verifier nào phản đối, tiền được giải ngân sau thời gian chờ.
+
+### Kịch bản 2: Có tranh chấp
+
+1. Chọn ví charity.
+2. Tab `Charity`: submit milestone `1`.
+3. Chọn ví verifier 1.
+4. Tab `Verifier`: reject milestone `1` với lý do, ví dụ `Invoice cannot be verified`.
+5. Milestone chuyển sang `Disputed`.
+6. Verifier 1 vote resolve.
+7. Verifier 2 vote resolve.
+8. Tab `Milestones`: release milestone `1`.
+
+Ý nghĩa: khi có phản đối, charity không thể nhận tiền ngay; milestone cần 2/3 verifier xử lý tranh chấp.
+
+## IPFS Và Chứng Từ
+
+Trong demo nhanh có thể dùng CID giả lập:
+
+```text
+ipfs://demo-milestone-1
+```
+
+Khi làm thật:
+
+1. Upload ảnh/hóa đơn/báo cáo lên Pinata hoặc IPFS.
+2. Copy CID.
+3. Submit trên frontend theo dạng:
+
+```text
+ipfs://<CID>
+```
+
+Verifier mở file qua gateway:
+
+```text
+https://gateway.pinata.cloud/ipfs/<CID>
+```
+
+Blockchain không tự xác minh hóa đơn thật hay giả. Verifier kiểm tra chứng từ off-chain, còn blockchain ghi lại CID, reject, vote và release để đảm bảo minh bạch.
+
+## Tài Liệu
+
+- [Báo cáo hoàn chỉnh](docs/bao_cao_hoan_chinh.md)
+- [Thiết kế smart contract](docs/thiet_ke_smart_contract.md)
+- [Hướng dẫn demo Hardhat local](docs/demo_hardhat_local.md)
+- [Kịch bản demo chi tiết](docs/kich_ban_demo.md)
+- [Câu hỏi bảo vệ](appendix/huong_dan_bao_ve.md)
+- [Flowchart](diagrams/flowchart.md)
+- [Sequence diagram](diagrams/sequence.md)
+
+## Các Lệnh Hữu Ích
+
+```powershell
+npm.cmd run hardhat:compile
+npm.cmd run node
+npm.cmd run deploy:local
+npm.cmd run frontend
+```
+
+## Lỗi Thường Gặp
+
+### MetaMask báo không đủ ETH
+
+Kiểm tra đang ở network `Hardhat Local` và import đúng account Hardhat. Nếu vừa tắt/chạy lại Hardhat node, cần deploy lại contract.
+
+### Frontend báo không tìm thấy contract
+
+Nguyên nhân thường là dán sai địa chỉ hoặc MetaMask đang ở sai network. Chạy lại:
+
+```powershell
+npm.cmd run deploy:local
+```
+
+Sau đó copy dòng `Contract: 0x...` mới nhất.
+
+### Contract mất dữ liệu sau khi tắt terminal
+
+Hardhat local là blockchain tạm thời. Khi tắt terminal `npm.cmd run node`, state sẽ mất. Chạy node lại thì cần deploy contract lại.
+
+## Ghi Chú Bảo Vệ
+
+Blockchain trong đồ án không được trình bày như công cụ bảo đảm sự thật tuyệt đối. Hạn chế lớn nhất là **Oracle Problem**: blockchain không tự biết chứng từ ngoài đời là thật hay giả.
+
+Giá trị chính của hệ thống là:
+
+- công khai kế hoạch sử dụng tiền trước khi nhận đóng góp;
+- giữ tiền trong smart contract thay vì để charity tự rút;
+- ghi lại bằng chứng, phản đối, vote và release;
+- tăng khả năng truy vết và trách nhiệm giải trình;
+- giảm rủi ro thay đổi mục đích sử dụng tiền mà không bị phát hiện.
