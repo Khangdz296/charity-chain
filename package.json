@@ -1,0 +1,12 @@
+{
+  "scripts": {
+    "frontend": "node frontend/server.mjs",
+    "compile": "solcjs --bin --abi contracts\\CharityMilestoneFund.sol -o build"
+  },
+  "dependencies": {
+    "ethers": "^6.16.0"
+  },
+  "devDependencies": {
+    "solc": "^0.8.35"
+  }
+}

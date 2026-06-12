@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Charity Flow Dashboard</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="topbar" aria-label="Thanh dieu khien">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">CF</div>
+        <div>
+          <h1>Charity Flow</h1>
+          <p>Minh bach giai ngan tu thien theo milestone</p>
+        </div>
+      </div>
+      <div class="wallet-panel">
+        <span id="networkBadge" class="badge">Chua ket noi</span>
+        <button id="connectWalletBtn" class="primary-btn" type="button">Ket noi vi</button>
+      </div>
+    </section>
+
+    <section class="hero-band" aria-label="Tong quan quy">
+      <div class="fund-visual" aria-hidden="true">
+        <div class="chain-line"></div>
+        <div class="node node-a"></div>
+        <div class="node node-b"></div>
+        <div class="node node-c"></div>
+        <div class="coin-stack">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+      <div class="summary-grid">
+        <div class="metric">
+          <span>Contract</span>
+          <strong id="contractShort">Chua co</strong>
+        </div>
+        <div class="metric">
+          <span>Funding goal</span>
+          <strong id="fundingGoal">-- ETH</strong>
+        </div>
+        <div class="metric">
+          <span>Da quyen gop</span>
+          <strong id="totalDonated">-- ETH</strong>
+        </div>
+        <div class="metric">
+          <span>Milestone</span>
+          <strong id="milestoneCount">--</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="contract-strip" aria-label="Ket noi contract">
+      <label for="contractAddress">Dia chi contract</label>
+      <input id="contractAddress" type="text" spellcheck="false" placeholder="0x...">
+      <button id="loadContractBtn" type="button">Tai contract</button>
+      <button id="refreshBtn" type="button">Lam moi</button>
+    </section>
+
+    <section class="workspace">
+      <aside class="side-panel" aria-label="Thong tin tai khoan">
+        <div class="panel-block">
+          <h2>Tai khoan</h2>
+          <dl>
+            <div>
+              <dt>Vi dang dung</dt>
+              <dd id="accountText">Chua ket noi</dd>
+            </div>
+            <div>
+              <dt>Charity</dt>
+              <dd id="charityText">--</dd>
+            </div>
+            <div>
+              <dt>Verifier</dt>
+              <dd id="verifierText">--</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="panel-block">
+          <h2>Dieu kien release</h2>
+          <ul class="check-list">
+            <li>Funding dat dung muc tieu</li>
+            <li>Milestone da submit CID</li>
+            <li>Het challenge period hoac da resolve</li>
+            <li>Chua release truoc do</li>
+          </ul>
+        </div>
+      </aside>
+
+      <section class="main-panel">
+        <div class="tabs" role="tablist" aria-label="Chuc nang">
+          <button class="tab-button active" type="button" data-tab="donor">Donor</button>
+          <button class="tab-button" type="button" data-tab="charity">Charity</button>
+          <button class="tab-button" type="button" data-tab="verifier">Verifier</button>
+          <button class="tab-button" type="button" data-tab="milestones">Milestones</button>
+        </div>
+
+        <div id="donor" class="tab-page active">
+          <form id="donateForm" class="action-form">
+            <label for="donateAmount">So ETH dong gop</label>
+            <div class="inline-control">
+              <input id="donateAmount" type="number" min="0" step="0.001" placeholder="0.1">
+              <button type="submit">Donate</button>
+            </div>
+          </form>
+        </div>
+
+        <div id="charity" class="tab-page">
+          <form id="submitForm" class="action-form">
+            <label for="submitMilestoneId">Milestone ID</label>
+            <input id="submitMilestoneId" type="number" min="0" step="1" placeholder="0">
+            <label for="evidenceCid">IPFS CID</label>
+            <input id="evidenceCid" type="text" placeholder="ipfs://Qm...">
+            <button type="submit">Submit milestone</button>
+          </form>
+        </div>
+
+        <div id="verifier" class="tab-page">
+          <form id="rejectForm" class="action-form split-form">
+            <div>
+              <label for="rejectMilestoneId">Milestone ID</label>
+              <input id="rejectMilestoneId" type="number" min="0" step="1" placeholder="0">
+            </div>
+            <div>
+              <label for="rejectReason">Ly do reject</label>
+              <input id="rejectReason" type="text" placeholder="Hoa don chua hop le">
+            </div>
+            <button type="submit">Reject</button>
+          </form>
+
+          <form id="resolveForm" class="action-form compact-form">
+            <label for="resolveMilestoneId">Milestone ID</label>
+            <div class="inline-control">
+              <input id="resolveMilestoneId" type="number" min="0" step="1" placeholder="0">
+              <button type="submit">Vote resolve</button>
+            </div>
+          </form>
+        </div>
+
+        <div id="milestones" class="tab-page">
+          <div class="milestone-toolbar">
+            <button id="loadMilestonesBtn" type="button">Tai danh sach</button>
+            <form id="releaseForm" class="release-form">
+              <label for="releaseMilestoneId">Release ID</label>
+              <input id="releaseMilestoneId" type="number" min="0" step="1" placeholder="0">
+              <button type="submit">Release</button>
+            </form>
+          </div>
+          <div id="milestoneList" class="milestone-list"></div>
+        </div>
+      </section>
+    </section>
+
+    <section class="activity-panel" aria-label="Nhat ky">
+      <div class="activity-header">
+        <h2>Nhat ky thao tac</h2>
+        <button id="clearLogBtn" type="button">Xoa</button>
+      </div>
+      <ol id="activityLog"></ol>
+    </section>
+  </main>
+
+  <script src="./vendor/ethers.umd.min.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
