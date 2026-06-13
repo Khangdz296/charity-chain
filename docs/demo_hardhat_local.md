@@ -1,20 +1,20 @@
-# Demo bang Hardhat local
+# Hardhat Local Demo Guide
 
-Day la cach demo de nhat vi khong can Sepolia, khong can faucet va khong mat tien that.
+This is the recommended demo flow. It does not require Sepolia, faucets, or real ETH.
 
-## 1. Chay blockchain local
+## 1. Start Hardhat Local
 
-Mo terminal 1 tai thu muc project:
+Open terminal 1:
 
 ```powershell
 npm.cmd run node
 ```
 
-Terminal nay se hien danh sach account test va private key. Khong tat terminal nay trong luc demo.
+Keep this terminal open. Hardhat will print local accounts and private keys.
 
-## 2. Them mang localhost vao MetaMask
+## 2. Add The Network To MetaMask
 
-Trong MetaMask, them network moi:
+Create a custom network:
 
 ```text
 Network name: Hardhat Local
@@ -23,143 +23,100 @@ Chain ID: 31337
 Currency symbol: ETH
 ```
 
-Chon network `Hardhat Local`.
-
-## 3. Import account test vao MetaMask
-
-Trong terminal Hardhat node, copy private key cua cac account test.
-
-Trong MetaMask:
+Import these local accounts from the Hardhat terminal:
 
 ```text
-Account menu -> Import account -> Private key
+Account #0: Admin / deployer
+Account #1: Charity
+Account #2: Verifier 1
+Account #3: Verifier 2
+Account #4: Verifier 3
+Account #5: Donor
 ```
 
-Nen import it nhat 5 account:
+These private keys are public demo keys. Never use them on mainnet.
 
-- Account 1: Charity
-- Account 2: Verifier 1
-- Account 3: Verifier 2
-- Account 4: Verifier 3
-- Account 5: Donor
+## 3. Deploy Contracts
 
-Day la vi local chi dung de demo. Khong dung cac private key nay tren mainnet.
-
-## 4. Deploy contract len Hardhat local
-
-Mo terminal 2 tai thu muc project:
+Open terminal 2:
 
 ```powershell
 npm.cmd run deploy:local
 ```
 
-Sau khi deploy, terminal se in:
+The script prints:
 
 ```text
+Factory : 0x...
 Contract: 0x...
 ```
 
-Copy dia chi contract nay.
+Copy both addresses.
 
-## 5. Chay frontend
+## 4. Start The Frontend
 
-Mo terminal 3:
+Open terminal 3:
 
 ```powershell
 npm.cmd run frontend
 ```
 
-Mo trinh duyet:
+Open:
 
 ```text
 http://127.0.0.1:5500
 ```
 
-Tren frontend:
+In the frontend:
 
-1. Bam `Ket noi vi`.
-2. Dan dia chi contract vao `Dia chi contract`.
-3. Bam `Tai contract`.
+1. Connect MetaMask.
+2. Paste `Factory` into `Factory Address`, then load it.
+3. Paste `Contract` into `Contract Address`, then load it.
 
-## 6. Demo kich ban binh thuong
+## 5. Normal Milestone Demo
 
-Chon vi Donor trong MetaMask.
+1. Switch MetaMask to the donor account.
+2. In `Donor`, donate `0.02 ETH`.
+3. Switch MetaMask to the charity account.
+4. In `Charity`, submit milestone `0` with `ipfs://demo-milestone-0`.
+5. Wait for the challenge period to end.
+6. In `Milestones`, release milestone `0`.
+7. In `Charity`, claim milestone `0`.
 
-Tab `Donor`:
+Expected result:
 
-```text
-So ETH dong gop: 0.02
-```
+- milestone state becomes `Released`;
+- milestone claim status becomes `Claimed`;
+- the charity account receives ETH.
 
-Bam `Donate`.
+## 6. Dispute Demo
 
-Chon vi Charity.
+1. Switch to the charity account.
+2. Submit milestone `1` with `ipfs://demo-milestone-1`.
+3. Switch to verifier 1.
+4. Reject milestone `1` with a reason.
+5. Vote resolve as verifier 1.
+6. Switch to verifier 2.
+7. Vote resolve as verifier 2.
+8. In `Milestones`, release milestone `1`.
+9. Switch to the charity account.
+10. In `Charity`, claim milestone `1`.
 
-Tab `Charity`:
+Expected result:
 
-```text
-Milestone ID: 0
-IPFS CID: ipfs://demo-milestone-0
-```
+- one verifier can stop immediate payment;
+- two verifier votes resolve the dispute;
+- `release()` makes the milestone claimable;
+- `claimMilestone()` transfers ETH to the charity.
 
-Bam `Submit milestone`.
+## 7. Common Errors
 
-Cho 60 giay.
-
-Tab `Milestones`:
-
-```text
-Release ID: 0
-```
-
-Bam `Release`.
-
-## 7. Demo kich ban co tranh chap
-
-Chon vi Charity.
-
-Tab `Charity`:
-
-```text
-Milestone ID: 1
-IPFS CID: ipfs://demo-milestone-1
-```
-
-Bam `Submit milestone`.
-
-Chon vi Verifier 1.
-
-Tab `Verifier`:
-
-```text
-Milestone ID: 1
-Ly do reject: Hoa don chua ro rang
-```
-
-Bam `Reject`.
-
-Sau do vote resolve bang 2 verifier:
-
-```text
-Verifier 1 -> Vote resolve milestone 1
-Verifier 2 -> Vote resolve milestone 1
-```
-
-Tab `Milestones`:
-
-```text
-Release ID: 1
-```
-
-Bam `Release`.
-
-## 8. Loi thuong gap
-
-| Loi | Cach xu ly |
+| Error | Fix |
 |---|---|
-| MetaMask khong thay tien | Kiem tra dang o network Hardhat Local |
-| Khong tai duoc contract | Kiem tra dung dia chi contract va node Hardhat con chay |
-| `Only charity` | Doi MetaMask sang dung vi Charity |
-| `Only verifier` | Doi MetaMask sang dung vi Verifier |
-| `Funding not complete` | Donor chua donate du 0.02 ETH |
-| `Not releasable` | Chua het 60 giay hoac milestone dang dispute chua du 2 vote |
+| MetaMask has no ETH | Check that the selected network is `Hardhat Local` |
+| Cannot load contract | Check the address and make sure the Hardhat node is still running |
+| `Only charity` | Switch MetaMask to the charity account |
+| `Only verifier` | Switch MetaMask to verifier 1, 2, or 3 |
+| `Funding not complete` | Donate until the full funding goal is reached |
+| `Not releasable` | Wait for the challenge period or resolve the dispute |
+| `Not claimable` | Release the milestone before claiming |

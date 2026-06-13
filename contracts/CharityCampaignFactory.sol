@@ -125,8 +125,8 @@ contract CharityCampaignFactory {
         require(!isDeactivated[campaignId], "Already deactivated");
         require(bytes(reason).length > 0, "Reason required");
         require(
-            !CharityMilestoneFund(payable(campaigns[campaignId].campaign)).hasAnyClaimedMilestone(),
-            "Cannot deactivate after funds have been claimed"
+            !CharityMilestoneFund(payable(campaigns[campaignId].campaign)).hasAnyReleasedMilestone(),
+            "Cannot deactivate after funds have been released"
         );
 
         isDeactivated[campaignId] = true;

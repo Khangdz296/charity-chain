@@ -15,5 +15,7 @@ flowchart TD
     J -- Chưa --> I
     J -- Rồi --> K[Milestone chuyển sang Approved]
     K --> H
-    H --> L[Chuyển tiền cho charity và ghi event]
+    H --> L[Milestone claimable và ghi MilestoneReleased]
+    L --> M[Charity claimMilestone]
+    M --> N[Chuyển tiền cho charity và ghi MilestoneClaimed]
 ```

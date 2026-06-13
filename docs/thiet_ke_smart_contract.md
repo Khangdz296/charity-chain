@@ -1,88 +1,113 @@
-# Thiết kế Smart Contract
+# Smart Contract Design
 
-## 1. Mục tiêu thiết kế
+## 1. Design Goal
 
-Smart contract được thiết kế để minh bạch hóa quy trình nhận quyên góp và giải ngân tiền từ thiện theo từng cột mốc đã công bố trước. Hợp đồng không cố gắng xác minh sự thật ngoài đời bằng code, mà tập trung vào ba mục tiêu:
+The smart contract system is designed to improve transparency in charity fund management. It does not try to prove whether a real-world invoice is true. Instead, it enforces a public process:
 
-- cố định kế hoạch sử dụng tiền trước khi nhận đóng góp;
-- ghi vết công khai các bằng chứng, phản đối và quyết định giải ngân;
-- giảm rủi ro tổ chức tự ý giải ngân mà không qua giai đoạn giám sát.
+- publish the spending plan before donations are accepted;
+- keep donated funds inside a smart contract;
+- require milestone evidence before funds can be unlocked;
+- allow independent verifiers to dispute suspicious evidence;
+- record donation, evidence, dispute, release, and claim actions on-chain.
 
-## 2. Các bên tham gia
+## 2. Contracts
 
-| Bên | Vai trò |
+| Contract | Role |
 |---|---|
-| Donor | Góp tiền vào quỹ và theo dõi lịch sử giải ngân |
-| Charity | Tổ chức từ thiện nhận trách nhiệm triển khai hoạt động và gửi bằng chứng hoàn thành milestone |
-| Verifier | Bên xác minh độc lập có quyền phản đối hoặc bỏ phiếu xử lý tranh chấp |
-| Smart Contract | Giữ tiền, lưu trạng thái milestone và thực thi điều kiện giải ngân |
+| `CharityCampaignFactory` | Deploys and indexes charity campaign contracts |
+| `CharityMilestoneFund` | Holds donated ETH and manages milestone states |
 
-## 3. Dữ liệu cố định khi triển khai
+The factory admin can create campaigns. Each campaign has one charity wallet, three verifier wallets, fixed milestones, a challenge period, and a funding deadline.
 
-Khi deploy contract, các dữ liệu sau được khai báo và không thể chỉnh sửa:
+## 3. Participants
 
-- địa chỉ ví tổ chức từ thiện;
-- danh sách 3 verifier;
-- danh sách milestone;
-- số tiền của từng milestone;
-- mục đích chi tiêu của từng milestone;
-- thời gian challenge period.
-
-`fundingGoal` được tính bằng tổng số tiền của toàn bộ milestone. Cách này giúp tránh trường hợp mục tiêu gọi vốn và tổng giải ngân không khớp nhau.
-
-## 4. State machine của milestone
-
-| Trạng thái | Ý nghĩa |
+| Participant | Role |
 |---|---|
-| `Planned` | Milestone đã được khai báo nhưng chưa gửi bằng chứng |
-| `Submitted` | Charity đã gửi IPFS CID/chứng từ và bắt đầu challenge period |
-| `Disputed` | Có ít nhất 1 verifier phản đối |
-| `Approved` | Tranh chấp được xử lý, đạt 2/3 phiếu verifier |
-| `Released` | Tiền đã được giải ngân cho charity |
+| Donor | Sends ETH to the campaign contract |
+| Charity | Submits milestone evidence and claims approved funds |
+| Verifier | Rejects weak evidence or votes to resolve a dispute |
+| Factory admin | Creates, deactivates, and reactivates campaigns |
+| Smart contract | Enforces the payment workflow |
 
-## 5. Quy trình giải ngân
+## 4. Fixed Data At Deployment
 
-1. Donor gửi tiền vào contract bằng `donate()`.
-2. Khi tổng tiền đạt `fundingGoal`, charity gọi `submitMilestone(milestoneId, evidenceCID)`.
-3. Contract lưu CID bằng chứng và thời điểm submit.
-4. Trong challenge period, verifier có thể gọi `reject(milestoneId, reason)`.
-5. Nếu không có phản đối, sau challenge period bất kỳ ai cũng có thể gọi `release(milestoneId)`.
-6. Nếu có phản đối, milestone chuyển sang `Disputed`.
-7. Khi có ít nhất 2/3 verifier gọi `voteResolve(milestoneId)`, milestone chuyển sang `Approved`.
-8. Sau đó bất kỳ ai cũng có thể gọi `release(milestoneId)`.
+Each `CharityMilestoneFund` contract stores:
 
-## 6. Các hàm chính
+- factory address;
+- campaign id;
+- charity address;
+- three verifier addresses;
+- milestone amounts;
+- milestone purposes;
+- challenge period;
+- funding deadline.
 
-| Hàm | Quyền gọi | Mục đích |
+`fundingGoal` is calculated as the sum of all milestone amounts.
+
+## 5. Milestone State Machine
+
+| State | Meaning |
+|---|---|
+| `Planned` | The milestone exists but no evidence has been submitted |
+| `Submitted` | The charity submitted evidence and the challenge period started |
+| `Disputed` | At least one verifier rejected the milestone |
+| `Approved` | A disputed milestone received 2 of 3 resolve votes |
+| `Released` | The milestone is approved for payment and can be claimed |
+
+Important: `Released` does not mean ETH has already been transferred. It means the milestone is claimable. The charity receives ETH only after calling `claimMilestone()`.
+
+## 6. Funding Flow
+
+1. Donors call `donate()`.
+2. The contract accepts donations until `fundingGoal` is reached.
+3. If a donation is larger than the remaining goal, the contract records the accepted amount and refunds the excess.
+4. If the funding deadline passes before the goal is reached, donors can call `refund()`.
+
+## 7. Normal Milestone Flow
+
+1. The charity calls `submitMilestone(milestoneId, evidenceCID)`.
+2. The contract stores the evidence CID and submission timestamp.
+3. Verifiers can reject during the challenge period.
+4. If no verifier rejects, any address can call `release(milestoneId)` after the challenge period.
+5. `release()` marks the milestone as `Released` and claimable.
+6. The charity calls `claimMilestone(milestoneId)` to receive ETH.
+
+## 8. Dispute Flow
+
+1. A verifier calls `reject(milestoneId, reason)` during the challenge period.
+2. The milestone state becomes `Disputed`.
+3. Two of the three verifiers must call `voteResolve(milestoneId)`.
+4. The milestone state becomes `Approved`.
+5. Any address can call `release(milestoneId)`.
+6. The charity calls `claimMilestone(milestoneId)` to receive ETH.
+
+## 9. Main Functions
+
+| Function | Caller | Purpose |
 |---|---|---|
-| `donate()` | Bất kỳ donor nào | Gửi ETH vào quỹ |
-| `submitMilestone()` | Charity | Gửi bằng chứng hoàn thành milestone |
-| `reject()` | Verifier | Phản đối milestone trong challenge period |
-| `voteResolve()` | Verifier | Bỏ phiếu xử lý tranh chấp |
-| `release()` | Bất kỳ ai | Giải ngân khi đủ điều kiện |
-| `getMilestone()` | Bất kỳ ai | Xem thông tin milestone |
+| `donate()` | Any donor | Sends ETH into the campaign |
+| `refund()` | Donor | Refunds donations if the goal fails or the campaign is deactivated |
+| `submitMilestone()` | Charity | Submits IPFS evidence |
+| `resubmitMilestone()` | Charity | Replaces evidence after a dispute |
+| `reject()` | Verifier | Rejects submitted evidence |
+| `voteResolve()` | Verifier | Votes to resolve a dispute |
+| `release()` | Any address | Marks a milestone as claimable |
+| `claimMilestone()` | Charity | Transfers approved ETH to the charity |
+| `getMilestone()` | Any address | Reads milestone details |
 
-## 7. Bảo mật và ràng buộc kỹ thuật
+## 10. Safety Rules
 
-- `release()` áp dụng nguyên tắc Checks-Effects-Interactions: kiểm tra điều kiện, cập nhật trạng thái, sau đó mới chuyển ETH.
-- Có cơ chế `nonReentrant` đơn giản để giảm rủi ro reentrancy.
-- Mỗi milestone chỉ có thể release một lần vì sau khi giải ngân trạng thái chuyển sang `Released`.
-- Chỉ verifier đã khai báo từ đầu mới được phản đối hoặc vote resolve.
-- Chỉ charity mới được submit bằng chứng milestone.
-- Không cho nhận vượt `fundingGoal` để tránh bài toán xử lý tiền dư trong bản demo.
+- Only the charity can submit, resubmit, and claim milestones.
+- Only registered verifiers can reject or vote resolve.
+- A milestone can only be claimed once.
+- Milestones must be submitted sequentially.
+- `release()` uses `>= submittedAt + challengePeriod` to avoid a boundary-time dead zone.
+- Campaign deactivation is blocked after any milestone has been released, so a claimable milestone cannot be frozen before the charity claims it.
+- External ETH transfers are protected by a simple `nonReentrant` guard.
 
-## 8. Giới hạn của thiết kế
+## 11. Limitations
 
-- Contract không xác minh nội dung hóa đơn, ảnh hoặc chứng từ là thật.
-- IPFS CID chỉ chứng minh rằng một nội dung cụ thể đã được tham chiếu, không chứng minh nội dung đó đúng với thực tế.
-- Nếu 2/3 verifier thông đồng, hệ thống vẫn có thể bị thao túng.
-- Nếu charity không submit milestone, tiền có thể bị kẹt trong bản demo này. Phiên bản thực tế cần thêm deadline, refund hoặc cơ chế thay charity.
-- Dữ liệu cá nhân trong chứng từ không nên công khai trực tiếp; nên mã hóa hoặc che thông tin nhạy cảm trước khi đưa lên IPFS.
-
-## 9. Hướng mở rộng
-
-- Thêm deadline gọi vốn và cơ chế refund nếu không đạt mục tiêu.
-- Thêm cơ chế stake & slashing cho verifier.
-- Thay verifier cố định bằng DAO hoặc hội đồng có thể thay đổi theo nhiệm kỳ.
-- Tích hợp frontend đọc event on-chain để donor theo dõi dòng tiền.
-- Tích hợp kiểm toán hậu kiểm ngoài chuỗi và lưu kết quả kiểm toán bằng hash trên chain.
+- The contract cannot verify whether an invoice or image is true in the real world.
+- IPFS only proves that a specific file is referenced by a CID.
+- If two verifiers collude, a dispute can be resolved incorrectly.
+- Real deployments should add stronger governance, verifier reputation, legal identity checks, and audit procedures.

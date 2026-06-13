@@ -1,142 +1,142 @@
 # Charity Chain
 
-Đồ án: **Nghiên cứu ứng dụng công nghệ Blockchain nhằm nâng cao tính minh bạch trong quản lý dòng tiền từ thiện**.
+Graduation/course project: **Researching Blockchain Applications to Improve Transparency in Charity Cash Flow Management**.
 
-Project triển khai mô hình quản lý quỹ từ thiện bằng smart contract. Donor gửi tiền vào contract, charity chỉ được nhận tiền theo từng milestone đã khai báo trước, verifier có quyền phản đối khi chứng từ có vấn đề, và toàn bộ trạng thái được ghi vết on-chain.
+Charity Chain is a local Hardhat demo that shows how a charity fund can be managed by smart contracts. Donors send ETH into a campaign contract, the charity can only unlock funds by milestones, verifiers can dispute weak evidence, and every important action is recorded on-chain.
 
-## Tính Năng Chính
+## Core Features
 
-- Smart contract Solidity quản lý quỹ theo milestone.
-- Cố định funding goal, milestone amount, milestone purpose và verifier khi deploy.
-- Charity submit bằng chứng qua IPFS CID.
-- Challenge period cho verifier phản đối.
-- Cơ chế dispute: chỉ cần 1 verifier reject, cần 2/3 verifier vote resolve để tiếp tục release.
-- Frontend dark dashboard bằng HTML/CSS/JavaScript, kết nối MetaMask qua `ethers.js`.
-- Demo local bằng Hardhat, không cần testnet, faucet hoặc tiền thật.
+- Solidity smart contracts for milestone-based charity fund management.
+- Campaign factory for creating and indexing charity campaigns.
+- Fixed funding goal, milestone amounts, milestone purposes, charity wallet, and verifier wallets.
+- IPFS CID submission for off-chain evidence such as invoices, images, and reports.
+- Challenge period where verifiers can reject a submitted milestone.
+- Dispute flow: 1 verifier can reject; 2 of 3 verifiers are required to resolve a dispute.
+- Two-step disbursement: `release()` marks a milestone claimable, then the charity calls `claimMilestone()` to receive ETH.
+- Dark dashboard frontend using HTML, CSS, JavaScript, MetaMask, and ethers.js.
+- Fully local Hardhat demo. No testnet, faucet, or real money is required.
 
-## Công Nghệ
+## Tech Stack
 
 - Solidity `0.8.24`
 - Hardhat `2.x`
 - ethers.js `6.x`
 - MetaMask
 - HTML/CSS/JavaScript
-- IPFS/Pinata cho chứng từ off-chain
+- IPFS or Pinata for off-chain evidence
 
-## Cấu Trúc Thư Mục
+## Project Structure
 
 ```text
 .
-├── contracts/
-│   └── CharityMilestoneFund.sol
-├── frontend/
-│   ├── index.html
-│   ├── app.js
-│   ├── styles.css
-│   ├── server.mjs
-│   └── vendor/
-├── scripts/
-│   └── deploy-local.js
-├── docs/
-│   ├── bao_cao_hoan_chinh.md
-│   ├── demo_hardhat_local.md
-│   ├── thiet_ke_smart_contract.md
-│   └── kich_ban_demo.md
-├── diagrams/
-├── appendix/
-├── hardhat.config.js
-├── package.json
-└── PLAN.md
+|-- contracts/
+|   |-- CharityCampaignFactory.sol
+|   `-- CharityMilestoneFund.sol
+|-- frontend/
+|   |-- index.html
+|   |-- app.js
+|   |-- styles.css
+|   |-- server.mjs
+|   `-- vendor/
+|-- scripts/
+|   `-- deploy-local.js
+|-- docs/
+|-- diagrams/
+|-- appendix/
+|-- hardhat.config.js
+|-- package.json
+`-- PLAN.md
 ```
 
-## Cài Đặt
+## Installation
 
-Cài dependency:
+Install dependencies:
 
 ```powershell
 npm.cmd install
 ```
 
-Compile contract bằng Hardhat:
+Compile the contracts:
 
 ```powershell
 npm.cmd run hardhat:compile
 ```
 
-Compile ABI/BIN bằng `solcjs` nếu cần:
+Optional ABI/BIN compilation:
 
 ```powershell
 npm.cmd run compile
 ```
 
-## Demo Local Bằng Hardhat
+## Local Demo With Hardhat
 
-### 1. Chạy blockchain local
+### 1. Start the local blockchain
 
-Mở terminal 1:
+Open terminal 1:
 
 ```powershell
 npm.cmd run node
 ```
 
-Giữ terminal này mở trong suốt lúc demo. Hardhat sẽ in ra danh sách account test và private key. Đây là ví local, chỉ dùng để demo.
+Keep this terminal open during the demo. Hardhat prints local accounts and private keys. These accounts only exist for local testing.
 
-### 2. Thêm network vào MetaMask
+### 2. Add Hardhat Local to MetaMask
 
-Trong MetaMask, thêm network thủ công:
+Add a custom network in MetaMask:
 
 ```text
 Network name: Hardhat Local
-RPC URL: http://localhost:8545
+RPC URL: http://127.0.0.1:8545
 Chain ID: 31337
 Currency symbol: ETH
 ```
 
-Import các private key Hardhat vào MetaMask để dùng làm donor, charity và verifier.
+Import the Hardhat private keys you want to use as admin, charity, verifiers, and donor.
 
-### 3. Deploy contract
+### 3. Deploy the demo contracts
 
-Mở terminal 2:
+Open terminal 2:
 
 ```powershell
 npm.cmd run deploy:local
 ```
 
-Lệnh này sẽ in ra địa chỉ contract:
+The script prints both addresses:
 
 ```text
+Factory : 0x...
 Contract: 0x...
 ```
 
-Copy địa chỉ này để dán vào frontend.
+Use `Factory` when you want to create or browse campaigns from the frontend. Use `Contract` when you want to load the pre-created demo campaign directly.
 
-### 4. Chạy frontend
+### 4. Start the frontend
 
-Mở terminal 3:
+Open terminal 3:
 
 ```powershell
 npm.cmd run frontend
 ```
 
-Mở trình duyệt:
+Open:
 
 ```text
 http://127.0.0.1:5500
 ```
 
-Trên giao diện:
+In the app:
 
-1. Bấm `Connect Wallet`.
-2. Dán địa chỉ contract vào `Contract Address`.
-3. Bấm `Load Contract`.
-4. Dùng các tab `Donor`, `Charity`, `Verifier`, `Milestones` để demo.
+1. Click `Connect Wallet`.
+2. Paste the factory address into `Factory Address`, then click `Load Factory`.
+3. Paste the campaign contract address into `Contract Address`, then click `Load Contract`.
+4. Use the `Factory`, `Donor`, `Charity`, `Verifier`, and `Milestones` tabs for the demo.
 
-## Tài Khoản Demo
+## Demo Accounts
 
-Script deploy dùng các account Hardhat theo vai trò:
+The local deployment script uses these Hardhat accounts by role:
 
 ```text
-Account #0: Deployer
+Account #0: Admin / deployer
 Account #1: Charity
 Account #2: Verifier 1
 Account #3: Verifier 2
@@ -144,71 +144,74 @@ Account #4: Verifier 3
 Account #5: Donor
 ```
 
-Donor không bị giới hạn trong contract, nên có thể dùng bất kỳ account Hardhat nào có ETH để donate.
+The donor is not restricted by the contract. Any Hardhat account with ETH can donate.
 
-## Kịch Bản Demo
+## Demo Scenario A: Normal Milestone Release
 
-### Kịch bản 1: Giải ngân bình thường
+1. Select the donor wallet in MetaMask.
+2. In `Donor`, donate enough ETH to reach the campaign goal, for example `0.02 ETH`.
+3. Select the charity wallet.
+4. In `Charity`, submit milestone `0` with an evidence CID, for example `ipfs://demo-milestone-0`.
+5. Wait until the challenge period ends.
+6. In `Milestones`, release milestone `0`.
+7. Select the charity wallet if it is not already selected.
+8. In `Charity`, claim milestone `0`.
 
-1. Chọn ví donor trong MetaMask.
-2. Tab `Donor`: donate `0.02 ETH`.
-3. Chọn ví charity.
-4. Tab `Charity`: submit milestone `0` với CID, ví dụ `ipfs://demo-milestone-0`.
-5. Chờ hết challenge period.
-6. Tab `Milestones`: release milestone `0`.
+Meaning: if no verifier rejects the evidence during the challenge period, the milestone becomes releasable. `release()` records that the milestone is approved for payment, and `claimMilestone()` transfers ETH to the charity.
 
-Ý nghĩa: nếu không verifier nào phản đối, tiền được giải ngân sau thời gian chờ.
+## Demo Scenario B: Dispute And Resolution
 
-### Kịch bản 2: Có tranh chấp
+1. Select the charity wallet.
+2. In `Charity`, submit milestone `1`.
+3. Select verifier 1.
+4. In `Verifier`, reject milestone `1` with a reason, for example `Invoice cannot be verified`.
+5. The milestone moves to `Disputed`.
+6. Verifier 1 votes resolve.
+7. Verifier 2 votes resolve.
+8. In `Milestones`, release milestone `1`.
+9. Select the charity wallet.
+10. In `Charity`, claim milestone `1`.
 
-1. Chọn ví charity.
-2. Tab `Charity`: submit milestone `1`.
-3. Chọn ví verifier 1.
-4. Tab `Verifier`: reject milestone `1` với lý do, ví dụ `Invoice cannot be verified`.
-5. Milestone chuyển sang `Disputed`.
-6. Verifier 1 vote resolve.
-7. Verifier 2 vote resolve.
-8. Tab `Milestones`: release milestone `1`.
+Meaning: one verifier can stop immediate payment, but two verifier votes are required to resolve the dispute and continue the disbursement process.
 
-Ý nghĩa: khi có phản đối, charity không thể nhận tiền ngay; milestone cần 2/3 verifier xử lý tranh chấp.
+## Creating A New Campaign From The Frontend
 
-## IPFS Và Chứng Từ
+1. Load the factory address.
+2. Connect with the admin/deployer wallet.
+3. Open the `Factory` tab.
+4. Enter the charity address, three verifier addresses, challenge period, funding duration, milestone amounts, and purposes.
+5. Click `Create Campaign`.
+6. The frontend selects the newly created campaign automatically.
 
-Trong demo nhanh có thể dùng CID giả lập:
+Only the factory admin can create, deactivate, or reactivate campaigns.
+
+## IPFS Evidence
+
+For a quick local demo, fake CIDs are acceptable:
 
 ```text
 ipfs://demo-milestone-1
 ```
 
-Khi làm thật:
+For a more realistic demo:
 
-1. Upload ảnh/hóa đơn/báo cáo lên Pinata hoặc IPFS.
-2. Copy CID.
-3. Submit trên frontend theo dạng:
+1. Upload an invoice, image, or report to Pinata or another IPFS service.
+2. Copy the CID.
+3. Submit it as:
 
 ```text
 ipfs://<CID>
 ```
 
-Verifier mở file qua gateway:
+Verifier check URL:
 
 ```text
 https://gateway.pinata.cloud/ipfs/<CID>
 ```
 
-Blockchain không tự xác minh hóa đơn thật hay giả. Verifier kiểm tra chứng từ off-chain, còn blockchain ghi lại CID, reject, vote và release để đảm bảo minh bạch.
+The blockchain does not decide whether an invoice is true or false. Verifiers inspect off-chain evidence, while the smart contract records the CID, rejection, resolution votes, release, and claim events.
 
-## Tài Liệu
-
-- [Báo cáo hoàn chỉnh](docs/bao_cao_hoan_chinh.md)
-- [Thiết kế smart contract](docs/thiet_ke_smart_contract.md)
-- [Hướng dẫn demo Hardhat local](docs/demo_hardhat_local.md)
-- [Kịch bản demo chi tiết](docs/kich_ban_demo.md)
-- [Câu hỏi bảo vệ](appendix/huong_dan_bao_ve.md)
-- [Flowchart](diagrams/flowchart.md)
-- [Sequence diagram](diagrams/sequence.md)
-
-## Các Lệnh Hữu Ích
+## Useful Commands
 
 ```powershell
 npm.cmd run hardhat:compile
@@ -217,34 +220,48 @@ npm.cmd run deploy:local
 npm.cmd run frontend
 ```
 
-## Lỗi Thường Gặp
+## Troubleshooting
 
-### MetaMask báo không đủ ETH
+### MetaMask shows no ETH
 
-Kiểm tra đang ở network `Hardhat Local` và import đúng account Hardhat. Nếu vừa tắt/chạy lại Hardhat node, cần deploy lại contract.
+Check that MetaMask is using `Hardhat Local` and that you imported a Hardhat account. If you restarted the Hardhat node, import accounts again if needed and deploy the contracts again.
 
-### Frontend báo không tìm thấy contract
+### The frontend cannot find the contract
 
-Nguyên nhân thường là dán sai địa chỉ hoặc MetaMask đang ở sai network. Chạy lại:
+You are probably on the wrong network or using an old address. Run:
 
 ```powershell
 npm.cmd run deploy:local
 ```
 
-Sau đó copy dòng `Contract: 0x...` mới nhất.
+Then copy the latest `Factory` and `Contract` addresses into the frontend.
 
-### Contract mất dữ liệu sau khi tắt terminal
+### State disappears after closing the node
 
-Hardhat local là blockchain tạm thời. Khi tắt terminal `npm.cmd run node`, state sẽ mất. Chạy node lại thì cần deploy contract lại.
+Hardhat Local is temporary. If you close the terminal running `npm.cmd run node`, blockchain state is lost. Start the node and deploy again.
 
-## Ghi Chú Bảo Vệ
+### Release succeeded but charity balance did not increase
 
-Blockchain trong đồ án không được trình bày như công cụ bảo đảm sự thật tuyệt đối. Hạn chế lớn nhất là **Oracle Problem**: blockchain không tự biết chứng từ ngoài đời là thật hay giả.
+This is expected in the current design. `release()` only marks the milestone as claimable. The charity must call `claimMilestone(milestoneId)` to receive ETH.
 
-Giá trị chính của hệ thống là:
+## Project Documents
 
-- công khai kế hoạch sử dụng tiền trước khi nhận đóng góp;
-- giữ tiền trong smart contract thay vì để charity tự rút;
-- ghi lại bằng chứng, phản đối, vote và release;
-- tăng khả năng truy vết và trách nhiệm giải trình;
-- giảm rủi ro thay đổi mục đích sử dụng tiền mà không bị phát hiện.
+- [Complete report](docs/bao_cao_hoan_chinh.md)
+- [Smart contract design](docs/thiet_ke_smart_contract.md)
+- [Hardhat local demo guide](docs/demo_hardhat_local.md)
+- [Detailed demo script](docs/kich_ban_demo.md)
+- [Defense Q&A](appendix/huong_dan_bao_ve.md)
+- [Flowchart](diagrams/flowchart.md)
+- [Sequence diagram](diagrams/sequence.md)
+
+## Defense Notes
+
+This project should not be presented as a tool that guarantees real-world truth. The main limitation is the **oracle problem**: a blockchain cannot automatically know whether an off-chain invoice, image, or delivery report is authentic.
+
+The value of the system is that it:
+
+- publishes the spending plan before donations are accepted;
+- keeps donated funds inside a smart contract;
+- requires milestone evidence before funds can be unlocked;
+- records dispute and resolution actions on-chain;
+- makes the payment process auditable and harder to alter quietly.

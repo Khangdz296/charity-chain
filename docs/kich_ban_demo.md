@@ -1,166 +1,189 @@
-# Kịch bản demo đồ án
+# Detailed Demo Script
 
-## 1. Chuẩn bị tài khoản
+Use this script when presenting the project.
 
-Trong Remix VM, chọn ít nhất 5 tài khoản:
+## 1. Opening Statement
 
-- Account 0: deployer hoặc donor;
-- Account 1: charity;
-- Account 2: verifier 1;
-- Account 3: verifier 2;
-- Account 4: verifier 3.
+This project demonstrates a charity fund managed by smart contracts. Donors can inspect the campaign plan before donating. The charity cannot withdraw funds freely. Each payment is tied to a milestone, evidence CID, verifier review, release event, and final claim transaction.
 
-## 2. Deploy contract
+## 2. Preparation
 
-Deploy `CharityMilestoneFund` với dữ liệu mẫu:
+Run three terminals:
 
-```text
-_charity:
-Account 1
-
-_verifiers:
-[Account 2, Account 3, Account 4]
-
-_amounts:
-[1000000000000000000, 1000000000000000000]
-
-_purposes:
-["Mua nhu yeu pham dot 1", "Ho tro y te dot 2"]
-
-_challengePeriod:
-300
+```powershell
+npm.cmd run node
+npm.cmd run deploy:local
+npm.cmd run frontend
 ```
 
-Tổng `fundingGoal` sẽ là `2 ETH`.
-
-## 3. Kịch bản A - Giải ngân bình thường
-
-### Bước 1: Donor góp tiền
-
-Chọn Account 0, nhập value `2 ETH`, gọi:
+Open:
 
 ```text
-donate()
+http://127.0.0.1:5500
 ```
 
-Kiểm tra:
+MetaMask must use:
 
 ```text
-totalDonated()
-fundingGoal()
+Network: Hardhat Local
+RPC URL: http://127.0.0.1:8545
+Chain ID: 31337
 ```
 
-Hai giá trị phải bằng nhau.
-
-### Bước 2: Charity submit milestone
-
-Chọn Account 1, gọi:
+Import these roles:
 
 ```text
-submitMilestone(0, "ipfs://QmDemoMilestone0")
+Account #0: Admin / deployer
+Account #1: Charity
+Account #2: Verifier 1
+Account #3: Verifier 2
+Account #4: Verifier 3
+Account #5: Donor
 ```
 
-Kiểm tra:
+## 3. Scenario A: Normal Release And Claim
+
+### Step 1: Load The Campaign
+
+Connect the wallet, paste the factory address, load the factory, paste the campaign contract address, and load the contract.
+
+Explain:
 
 ```text
-getMilestone(0)
+The contract shows funding goal, donated amount, charity address, verifier role, and milestone count.
 ```
 
-Trạng thái trả về là `1`, tương ứng `Submitted`.
+### Step 2: Donor Donates
 
-### Bước 3: Chờ hết challenge period
+Switch to the donor wallet.
 
-Trong Remix VM, có thể đặt `_challengePeriod` nhỏ hơn, ví dụ `30`, để demo nhanh. Nếu dùng `300`, cần chờ đủ thời gian hoặc dùng môi trường test có hỗ trợ tăng thời gian block.
-
-### Bước 4: Release
-
-Sau khi hết challenge period, bất kỳ account nào cũng gọi:
+In `Donor`:
 
 ```text
-release(0)
+Amount: 0.02
+Action: Donate
 ```
 
-Kiểm tra:
+Explain:
 
 ```text
-getMilestone(0)
+The money is now inside the smart contract, not inside the charity wallet.
 ```
 
-Trạng thái trả về là `4`, tương ứng `Released`.
+### Step 3: Charity Submits Evidence
 
-## 4. Kịch bản B - Có tranh chấp
+Switch to the charity wallet.
 
-### Bước 1: Charity submit milestone thứ hai
-
-Chọn Account 1, gọi:
+In `Charity`:
 
 ```text
-submitMilestone(1, "ipfs://QmDemoMilestone1")
+Milestone ID: 0
+CID: ipfs://demo-milestone-0
+Action: Submit milestone
 ```
 
-### Bước 2: Verifier phản đối
-
-Chọn Account 2, gọi:
+Explain:
 
 ```text
-reject(1, "Hoa don chua du thong tin xac minh")
+The CID points to off-chain evidence. The blockchain stores the reference and the submission time.
 ```
 
-Kiểm tra:
+### Step 4: Challenge Period
+
+Wait until the challenge period ends.
+
+Explain:
 
 ```text
-getMilestone(1)
+During this time, verifiers can reject the milestone if the evidence is suspicious.
 ```
 
-Trạng thái trả về là `2`, tương ứng `Disputed`.
+### Step 5: Release
 
-### Bước 3: Hai verifier vote resolve
-
-Chọn Account 2, gọi:
+In `Milestones`:
 
 ```text
-voteResolve(1)
+Milestone ID: 0
+Action: Release
 ```
 
-Chọn Account 3, gọi:
+Explain:
 
 ```text
-voteResolve(1)
+Release does not transfer ETH yet. It marks the milestone as approved for payment and claimable.
 ```
 
-Kiểm tra:
+### Step 6: Claim
+
+Switch to the charity wallet.
+
+In `Charity`:
 
 ```text
-getMilestone(1)
+Milestone ID: 0
+Action: Claim milestone
 ```
 
-Trạng thái trả về là `3`, tương ứng `Approved`.
-
-### Bước 4: Release sau khi resolve
-
-Gọi:
+Explain:
 
 ```text
-release(1)
+This is the transaction that transfers ETH from the contract to the charity wallet.
 ```
 
-Trạng thái milestone chuyển thành `Released`.
+## 4. Scenario B: Dispute And Resolution
 
-## 5. Điểm cần nói khi demo
+### Step 1: Submit Milestone 1
 
-- Contract không cho charity tự rút tiền tùy ý.
-- Mỗi milestone phải có bằng chứng IPFS CID.
-- Verifier có cửa chặn trước khi tiền được giải ngân.
-- Nếu không có phản đối, hệ thống tự động cho phép giải ngân sau challenge period.
-- Mọi hành động đều sinh event, phục vụ truy vết và kiểm toán.
+Switch to the charity wallet.
 
-## 6. Lỗi thường gặp khi demo
+```text
+Milestone ID: 1
+CID: ipfs://demo-milestone-1
+Action: Submit milestone
+```
 
-| Lỗi | Nguyên nhân | Cách xử lý |
-|---|---|---|
-| `Funding not complete` | Chưa góp đủ `fundingGoal` | Gọi `donate()` đủ tổng milestone |
-| `Only charity` | Dùng sai account khi submit | Chọn đúng account charity |
-| `Only verifier` | Dùng account không nằm trong danh sách verifier | Chọn Account 2/3/4 |
-| `Challenge period ended` | Reject quá muộn | Reject ngay sau khi submit |
-| `Not releasable` | Chưa hết challenge period hoặc chưa resolve dispute | Chờ đủ thời gian hoặc vote resolve |
-| `Already voted` | Một verifier vote resolve hai lần | Đổi sang verifier khác |
+### Step 2: Verifier Rejects
+
+Switch to verifier 1.
+
+```text
+Milestone ID: 1
+Reason: Invoice cannot be verified
+Action: Reject
+```
+
+Explain:
+
+```text
+One verifier is enough to stop immediate release.
+```
+
+### Step 3: Two Verifiers Resolve
+
+Verifier 1 votes resolve.
+
+Switch to verifier 2 and vote resolve again.
+
+Explain:
+
+```text
+The contract requires 2 of 3 verifier votes to resolve the dispute.
+```
+
+### Step 4: Release And Claim
+
+Release milestone `1`, then switch to the charity wallet and claim milestone `1`.
+
+Explain:
+
+```text
+The dispute was recorded on-chain, the resolution votes were recorded, and payment only happened after the claim transaction.
+```
+
+## 5. Key Points For Defense
+
+- Blockchain does not automatically verify real-world invoices.
+- Verifiers inspect evidence off-chain.
+- The smart contract makes the process transparent and auditable.
+- Donated funds stay in the contract until milestone conditions are satisfied.
+- `release()` and `claimMilestone()` are separated to make the approval and transfer steps explicit.

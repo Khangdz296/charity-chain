@@ -16,8 +16,10 @@ sequenceDiagram
     alt Không có phản đối
         Note over Contract: Chờ hết challengePeriod
         Donor->>Contract: release(milestoneId)
-        Contract->>Charity: transfer milestone amount
         Contract-->>Donor: emit MilestoneReleased
+        Charity->>Contract: claimMilestone(milestoneId)
+        Contract->>Charity: transfer milestone amount
+        Contract-->>Charity: emit MilestoneClaimed
     else Có verifier phản đối
         Verifier->>Contract: reject(milestoneId, reason)
         Contract-->>Verifier: emit MilestoneRejected
@@ -26,7 +28,9 @@ sequenceDiagram
         Verifier->>Contract: voteResolve(milestoneId)
         Contract-->>Verifier: emit DisputeResolved
         Donor->>Contract: release(milestoneId)
-        Contract->>Charity: transfer milestone amount
         Contract-->>Donor: emit MilestoneReleased
+        Charity->>Contract: claimMilestone(milestoneId)
+        Contract->>Charity: transfer milestone amount
+        Contract-->>Charity: emit MilestoneClaimed
     end
 ```

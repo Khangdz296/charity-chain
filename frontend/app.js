@@ -116,8 +116,8 @@ Object.assign(ui, {
 function log(message, kind = "info") {
   const item = document.createElement("li");
   item.className = kind;
-  const icon = kind === "success" ? "✅" : kind === "error" ? "❌" : "ℹ️";
-  item.textContent = `${icon} ${new Date().toLocaleTimeString()} - ${message}`;
+  const label = kind === "success" ? "Success" : kind === "error" ? "Error" : "Info";
+  item.textContent = `${label} ${new Date().toLocaleTimeString()} - ${message}`;
   ui.activityLog.prepend(item);
 }
 
@@ -309,7 +309,7 @@ async function refreshSummary() {
   const currentTime = currentBlock.timestamp;
 
   if (currentTime > Number(deadline)) {
-    ui.fundingDeadline.textContent = `${deadlineDate.toLocaleString()} ❌ PASSED`;
+    ui.fundingDeadline.textContent = `${deadlineDate.toLocaleString()} - passed`;
   } else {
     const remaining = Number(deadline) - currentTime;
     const days = Math.floor(remaining / 86400);
@@ -379,8 +379,8 @@ function renderCampaignCard(index, campaign, isDeactivated, deactivationReason) 
 
   const deadline = new Date(Number(campaign.fundingDeadline) * 1000).toLocaleString();
   const statusBadge = isDeactivated
-    ? `<span class="status-badge deactivated">🚫 Deactivated</span>`
-    : `<span class="status-badge active">✅ Active</span>`;
+    ? `<span class="status-badge deactivated">Deactivated</span>`
+    : `<span class="status-badge active">Active</span>`;
 
   const reasonText = isDeactivated
     ? `<span class="deactivation-reason">Reason: ${escapeHtml(deactivationReason)}</span>`
@@ -398,8 +398,8 @@ function renderCampaignCard(index, campaign, isDeactivated, deactivationReason) 
       <button type="button" class="select-btn">Select</button>
       ${state.account && state.factoryAdmin && state.account.toLowerCase() === state.factoryAdmin.toLowerCase() ?
         (isDeactivated
-          ? `<button type="button" class="reactivate-btn" data-id="${index}">♻️ Reactivate</button>`
-          : `<button type="button" class="deactivate-btn" data-id="${index}">🚫 Deactivate</button>`
+          ? `<button type="button" class="reactivate-btn" data-id="${index}">Reactivate</button>`
+          : `<button type="button" class="deactivate-btn" data-id="${index}">Deactivate</button>`
         ) : ''
       }
     </div>
@@ -438,7 +438,7 @@ function renderMilestoneCard(index, milestone, claimable, claimed) {
   const stateId = Number(milestone.state);
   const stateName = STATE_NAMES[stateId] || "Unknown";
 
-  const claimStatus = claimed ? "✅ Claimed" : (claimable ? "🔓 Claimable" : "🔒 Not claimable");
+  const claimStatus = claimed ? "Claimed" : (claimable ? "Claimable" : "Not claimable");
 
   card.innerHTML = `
     <header>
@@ -449,7 +449,7 @@ function renderMilestoneCard(index, milestone, claimable, claimed) {
     <div class="milestone-meta">
       <span>${formatEth(milestone.amount)} ETH</span>
       <span>Reject: ${Number(milestone.rejectCount)}</span>
-      <span>Resolve: ${Number(milestone.resolveVoteCount)}/3</span>
+      <span>Resolve: ${Number(milestone.resolveVoteCount)}/2 required</span>
     </div>
     <div class="milestone-meta">
       <span>${escapeHtml(submitted)}</span>

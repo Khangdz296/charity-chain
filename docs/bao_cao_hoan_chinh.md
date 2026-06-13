@@ -8,7 +8,7 @@
 
 Hoat dong tu thien phu thuoc rat lon vao niem tin cua cong dong. Tuy nhien, trong nhieu chien dich, nha hao tam kho kiem tra duoc tien da duoc tiep nhan, phan bo va giai ngan nhu the nao. Cac bao cao truyen thong thuong duoc cong bo sau khi chi tieu da dien ra, chung tu co the bi thieu, bi sua doi hoac kho doi chieu voi ke hoach ban dau.
 
-Do an de xuat mot mo hinh quan ly quy tu thien bang smart contract, trong do tien quyen gop duoc giu trong hop dong thong minh va chi duoc giai ngan theo tung milestone da cong bo truoc. Moi milestone gan voi so tien, muc dich su dung va bang chung thuc hien duoc luu ngoai chuoi bang IPFS. Ba verifier doc lap co quyen phan doi trong challenge period. Neu khong co phan doi, tien duoc giai ngan theo co che optimistic release. Neu co phan doi, milestone chuyen sang trang thai tranh chap va can 2/3 verifier vote resolve truoc khi release.
+Do an de xuat mot mo hinh quan ly quy tu thien bang smart contract, trong do tien quyen gop duoc giu trong hop dong thong minh va chi duoc mo khoa theo tung milestone da cong bo truoc. Moi milestone gan voi so tien, muc dich su dung va bang chung thuc hien duoc luu ngoai chuoi bang IPFS. Ba verifier doc lap co quyen phan doi trong challenge period. Neu khong co phan doi, milestone duoc release theo co che optimistic release va charity phai goi `claimMilestone()` de nhan ETH. Neu co phan doi, milestone chuyen sang trang thai tranh chap va can 2/3 verifier vote resolve truoc khi release va claim.
 
 Giai phap khong khang dinh blockchain co the xac minh su that ngoai doi mot cach tuyet doi. Gia tri chinh cua he thong la minh bach hoa quy trinh, khoa ke hoach chi tieu, tao dau vet bat bien va tang chi phi gian lan/thong dong.
 
@@ -66,7 +66,7 @@ Smart contract la chuong trinh chay tren blockchain. Trong do an nay, smart cont
 - luu thong tin milestone;
 - nhan IPFS CID bang chung tu charity;
 - cho phep verifier reject/vote;
-- chi release tien khi dieu kien hop le.
+- chi cho phep charity claim tien khi milestone da du dieu kien.
 
 ### 2.3. IPFS
 
@@ -93,7 +93,7 @@ Vi vay, giai phap cua do an khong coi blockchain la cong cu xac minh su that tuy
 | Donor | Dong gop tien va theo doi dong tien |
 | Charity | To chuc tu thien thuc hien chien dich va submit bang chung |
 | Verifier | Ben kiem tra doc lap, co quyen reject va vote resolve |
-| Smart contract | Giu tien, quan ly trang thai milestone va thuc thi dieu kien release |
+| Smart contract | Giu tien, quan ly trang thai milestone va thuc thi dieu kien release/claim |
 
 ### 3.2. Yeu cau chuc nang
 
@@ -104,6 +104,7 @@ He thong can co cac chuc nang:
 - verifier reject trong challenge period;
 - verifier vote resolve khi milestone bi dispute;
 - bat ky ai co the release khi dieu kien da du;
+- charity claim tien sau khi milestone da release;
 - frontend hien thi funding goal, tong tien da donate, milestone va trang thai.
 
 ### 3.3. Yeu cau phi chuc nang
@@ -140,6 +141,7 @@ Quy trinh mot milestone:
 5. Neu bi reject, milestone chuyen sang `Disputed`.
 6. Can 2/3 verifier vote resolve de chuyen sang `Approved`.
 7. Sau khi approved, milestone co the release.
+8. Sau khi release, charity goi `claimMilestone()` de nhan ETH.
 
 ### 4.3. Tang 3 - Stake & Slashing
 
@@ -149,7 +151,7 @@ Trong demo, stake/slashing chua duoc code vi can them mot quy trinh xac dinh sai
 
 ### 4.4. Tang 4 - Hau kiem ngau nhien
 
-Sau khi milestone da release, mot ben kiem toan doc lap co the chon ngau nhien mot so milestone de xac minh thuc dia. Ket qua hau kiem co the duoc cong bo ngoai chuoi va luu hash len blockchain.
+Sau khi milestone da release/claim, mot ben kiem toan doc lap co the chon ngau nhien mot so milestone de xac minh thuc dia. Ket qua hau kiem co the duoc cong bo ngoai chuoi va luu hash len blockchain.
 
 ### 4.5. Tang 5 - Danh tieng on-chain
 
@@ -167,7 +169,7 @@ Contract `CharityMilestoneFund` su dung enum `MilestoneState`:
 | `Submitted` | Charity da submit bang chung |
 | `Disputed` | Co verifier reject |
 | `Approved` | Tranh chap da duoc 2/3 verifier resolve |
-| `Released` | Tien da duoc giai ngan |
+| `Released` | Milestone da duoc phe duyet de charity claim tien |
 
 Moi milestone gom:
 
@@ -187,7 +189,8 @@ Moi milestone gom:
 | `submitMilestone()` | Charity | Submit CID bang chung |
 | `reject()` | Verifier | Phan doi milestone trong challenge period |
 | `voteResolve()` | Verifier | Bo phieu xu ly dispute |
-| `release()` | Moi dia chi | Release tien neu du dieu kien |
+| `release()` | Moi dia chi | Chuyen milestone sang trang thai claimable neu du dieu kien |
+| `claimMilestone()` | Charity | Nhan ETH cua milestone da release |
 | `getMilestone()` | Moi dia chi | Doc thong tin milestone |
 
 ### 5.3. Dieu kien release
@@ -195,9 +198,16 @@ Moi milestone gom:
 Mot milestone chi duoc release khi:
 
 - chua tung release;
-- contract co du so du;
 - milestone dang `Submitted` va da het challenge period, hoac milestone dang `Approved`;
-- trang thai duoc cap nhat thanh `Released` truoc khi chuyen ETH.
+- trang thai duoc cap nhat thanh `Released`;
+- `milestoneClaimable` duoc bat de charity co the claim.
+
+Tien chi duoc chuyen cho charity khi:
+
+- milestone da release;
+- milestone chua tung claim;
+- nguoi goi la charity;
+- contract con du ETH cho milestone.
 
 ## 6. Thiet ke frontend
 
@@ -208,7 +218,7 @@ Giao dien gom cac khu vuc:
 - tong quan contract: funding goal, total donated, milestone count;
 - thong tin vi: account, balance, charity, verifier role;
 - tab Donor: donate ETH;
-- tab Charity: submit milestone voi IPFS CID;
+- tab Charity: submit milestone voi IPFS CID va claim milestone da release;
 - tab Verifier: reject va vote resolve;
 - tab Milestones: tai danh sach milestone va release;
 - nhat ky thao tac: hien thi ket qua giao dich va loi.
@@ -245,9 +255,10 @@ Terminal 2:
 npm.cmd run deploy:local
 ```
 
-Ket qua in ra dia chi contract, vi du:
+Ket qua in ra dia chi factory va campaign contract, vi du:
 
 ```text
+Factory : 0x...
 Contract: 0x5FbDB2315678afecb367f032d93F642f64180aa3
 ```
 
@@ -259,7 +270,7 @@ Terminal 3:
 npm.cmd run frontend
 ```
 
-Mo frontend va dan dia chi contract vao o `Dia chi contract`.
+Mo frontend, dan dia chi factory vao `Factory Address` va dan dia chi campaign vao `Contract Address`.
 
 ### 7.4. Kich ban 1 - Giai ngan binh thuong
 
@@ -268,6 +279,7 @@ Mo frontend va dan dia chi contract vao o `Dia chi contract`.
 3. Cho het challenge period.
 4. Goi `release(0)`.
 5. Milestone chuyen sang `Released`.
+6. Charity goi `claimMilestone(0)` de nhan ETH.
 
 ### 7.5. Kich ban 2 - Co tranh chap
 
@@ -278,6 +290,7 @@ Mo frontend va dan dia chi contract vao o `Dia chi contract`.
 5. Verifier 2 vote resolve.
 6. Milestone chuyen sang `Approved`.
 7. Goi `release(1)`.
+8. Charity goi `claimMilestone(1)` de nhan ETH.
 
 ## 8. Quy trinh xac minh bang chung IPFS
 

@@ -1,48 +1,49 @@
-# Hướng dẫn bảo vệ đồ án
+# Defense Q&A Guide
 
-## 1. Đồ án giải quyết vấn đề gì?
+## 1. What problem does the project solve?
 
-Đồ án tập trung giải quyết vấn đề thiếu minh bạch trong quản lý dòng tiền từ thiện. Thay vì để tổ chức từ thiện tự công bố thông tin sau khi chi tiêu, hệ thống yêu cầu kế hoạch sử dụng tiền được cố định trước, tiền được giữ trong smart contract, và mỗi lần giải ngân phải gắn với bằng chứng cùng cơ chế giám sát của verifier.
+The project addresses the lack of transparency in charity cash flow management. Instead of relying only on reports published after spending, the system fixes the spending plan in advance, keeps donated ETH inside a smart contract, and requires each milestone payment to go through evidence submission and verifier supervision.
 
-## 2. Blockchain có bảo đảm chứng từ là thật không?
+## 2. Can blockchain prove that an invoice is real?
 
-Không. Đây là điểm cần thừa nhận rõ. Blockchain chỉ bảo đảm dữ liệu đã ghi không bị sửa và mọi người có thể kiểm tra lịch sử. Nó không tự biết hóa đơn, ảnh hay báo cáo ngoài đời là thật hay giả. Vì vậy đồ án dùng blockchain để tăng tính minh bạch và truy vết, kết hợp verifier và hậu kiểm để giảm rủi ro dữ liệu sai.
+No. This is the oracle problem. Blockchain can prove that a CID, transaction, vote, or event was recorded and not quietly changed later. It cannot automatically know whether an off-chain invoice, photo, or report is true. Real-world verification is still done by verifiers and auditors.
 
-## 3. Nếu tổ chức từ thiện và verifier thông đồng thì sao?
+## 3. What if the charity and verifiers collude?
 
-Không có hệ thống nào loại bỏ hoàn toàn rủi ro thông đồng khi có yếu tố con người. Giải pháp của đồ án không nhằm tạo ra sự an toàn tuyệt đối, mà làm cho gian lận khó hơn, tốn kém hơn và dễ bị phát hiện hơn. Mọi hành động submit, reject, vote và release đều để lại dấu vết on-chain, từ đó tạo rủi ro danh tiếng và hỗ trợ kiểm toán sau này.
+No system can remove all collusion risk when humans are involved. The goal is to make fraud harder, more visible, and easier to audit. Every submit, reject, vote, release, and claim leaves an on-chain trace. In a real deployment, this should be combined with verifier identity, reputation, audits, and possible stake/slashing.
 
-## 4. Vì sao chỉ cần 1/3 verifier reject?
+## 4. Why can one verifier reject?
 
-Ngưỡng phản đối thấp giúp hệ thống ưu tiên an toàn trong giai đoạn trước giải ngân. Chỉ cần một verifier phát hiện bất thường là tiền bị tạm dừng, tránh việc giải ngân quá nhanh khi có dấu hiệu nghi vấn. Sau đó hệ thống yêu cầu 2/3 verifier xử lý tranh chấp để cân bằng giữa kiểm soát rủi ro và khả năng tiếp tục vận hành.
+The rejection threshold is intentionally low to prioritize safety before payment. If one verifier sees suspicious evidence, the milestone is paused. To continue, the system then requires 2 of 3 verifiers to vote resolve.
 
-## 5. Vì sao `release()` ai cũng gọi được?
+## 5. Why can anyone call `release()`?
 
-Đây là tư duy optimistic automation. Khi điều kiện đã đủ, việc giải ngân không nên phụ thuộc vào thiện chí của một tài khoản cụ thể. Bất kỳ ai cũng có thể gọi `release()`, nhưng contract chỉ chuyển tiền nếu trạng thái milestone hợp lệ.
+This follows an optimistic automation model. Once the conditions are satisfied, unlocking a milestone should not depend on one specific wallet. Anyone can call `release()`, but it only marks the milestone as claimable. ETH is transferred only when the charity calls `claimMilestone()`.
 
-## 6. Vì sao không lưu toàn bộ hóa đơn lên blockchain?
+## 6. Why not store full invoices on-chain?
 
-Lưu dữ liệu lớn trực tiếp lên blockchain rất tốn phí và có thể làm lộ dữ liệu cá nhân. Thiết kế phù hợp hơn là lưu chứng từ ở IPFS hoặc hệ thống lưu trữ ngoài chuỗi, còn blockchain chỉ lưu CID/hash để kiểm tra tính toàn vẹn.
+Large files are expensive to store on-chain and may expose private data. The better design is to store files off-chain using IPFS or a pinning service, then store only the CID or hash reference on-chain.
 
-## 7. Điểm mới của đồ án là gì?
+## 7. What is the new point of the project?
 
-Điểm mới không nằm ở việc tạo ra một blockchain riêng, mà ở mô hình quản lý giải ngân theo nhiều lớp tin cậy:
+The project is not about creating a new blockchain. The contribution is the milestone-based charity fund workflow:
 
-- kế hoạch chi tiêu cố định từ đầu;
-- giải ngân theo milestone;
-- verifier độc lập có quyền phản đối;
-- xử lý tranh chấp có ghi vết;
-- đề xuất stake/slashing và hậu kiểm để mở rộng.
+- fixed spending plan before donation;
+- funds held by smart contract;
+- evidence-based milestone submission;
+- verifier challenge period;
+- 2-of-3 dispute resolution;
+- separate `release()` and `claimMilestone()` steps for clearer auditability.
 
-## 8. Hạn chế lớn nhất là gì?
+## 8. What are the main limitations?
 
-Hạn chế lớn nhất là oracle problem: dữ liệu ngoài đời khi đưa vào hệ thống có thể sai. Ngoài ra, bản demo còn đơn giản hóa một số vấn đề như deadline gọi vốn, refund, thay verifier và bảo vệ dữ liệu cá nhân. Các điểm này có thể trình bày trong hướng phát triển.
+The largest limitation is the oracle problem. The demo also simplifies verifier governance, real-world audit procedures, personal data protection, and legal identity checks. These are suitable directions for future work.
 
-## 9. Nên demo như thế nào?
+## 9. What should be demonstrated?
 
-Nên demo 2 kịch bản:
+Demo two scenarios:
 
-1. **Kịch bản bình thường**: donor góp đủ tiền, charity submit milestone, không verifier nào reject, hết challenge period thì release.
-2. **Kịch bản có tranh chấp**: charity submit milestone, một verifier reject, trạng thái chuyển sang `Disputed`, hai verifier vote resolve, sau đó release.
+1. Normal flow: donor funds the campaign, charity submits evidence, no verifier rejects, the milestone is released, then the charity claims ETH.
+2. Dispute flow: charity submits evidence, one verifier rejects, two verifiers vote resolve, the milestone is released, then the charity claims ETH.
 
-Khi demo, cần nhấn mạnh event log vì đó là bằng chứng minh bạch của toàn bộ quy trình.
+During the demo, emphasize the event log because it is the transparent audit trail of the process.

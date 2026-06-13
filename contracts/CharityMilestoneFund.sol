@@ -136,20 +136,22 @@ contract CharityMilestoneFund {
         require(block.timestamp <= fundingDeadline, "Funding deadline passed");
 
         uint256 acceptableAmount = msg.value;
+        uint256 excess;
         if (totalDonated + msg.value > fundingGoal) {
             acceptableAmount = fundingGoal - totalDonated;
             require(acceptableAmount > 0, "Funding goal already reached");
-
-            // Refund excess
-            uint256 excess = msg.value - acceptableAmount;
-            (bool refunded, ) = payable(msg.sender).call{value: excess}("");
-            require(refunded, "Refund failed");
+            excess = msg.value - acceptableAmount;
         }
 
         donations[msg.sender] += acceptableAmount;
         totalDonated += acceptableAmount;
 
         emit DonationReceived(msg.sender, acceptableAmount);
+
+        if (excess > 0) {
+            (bool refunded, ) = payable(msg.sender).call{value: excess}("");
+            require(refunded, "Refund failed");
+        }
     }
 
     function refund() external nonReentrant {
@@ -260,7 +262,7 @@ contract CharityMilestoneFund {
         require(milestone.state != MilestoneState.Released, "Already released");
 
         bool optimisticApproved = milestone.state == MilestoneState.Submitted
-            && block.timestamp > milestone.submittedAt + challengePeriod;
+            && block.timestamp >= milestone.submittedAt + challengePeriod;
         bool disputeApproved = milestone.state == MilestoneState.Approved;
         require(optimisticApproved || disputeApproved, "Not releasable");
 
@@ -298,6 +300,15 @@ contract CharityMilestoneFund {
     function hasAnyClaimedMilestone() external view returns (bool) {
         for (uint256 i = 0; i < milestones.length; i++) {
             if (milestoneClaimed[i]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function hasAnyReleasedMilestone() external view returns (bool) {
+        for (uint256 i = 0; i < milestones.length; i++) {
+            if (milestones[i].state == MilestoneState.Released) {
                 return true;
             }
         }
