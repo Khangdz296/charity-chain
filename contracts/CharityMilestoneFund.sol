@@ -215,7 +215,7 @@ contract CharityMilestoneFund {
         hasVotedResolve[milestoneId][msg.sender] = true;
         milestone.resolveVoteCount += 1;
 
-        if (milestone.resolveVoteCount >= 3) {
+        if (milestone.resolveVoteCount >= 2) {
             milestone.state = MilestoneState.Approved;
             emit DisputeResolved(milestoneId);
         }
