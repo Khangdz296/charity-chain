@@ -65,6 +65,13 @@
       <button id="refreshBtn" type="button">Refresh</button>
     </section>
 
+    <section class="contract-strip factory-strip" aria-label="Factory connection">
+      <label for="factoryAddress">Factory Address</label>
+      <input id="factoryAddress" type="text" spellcheck="false" placeholder="0x...">
+      <button id="loadFactoryBtn" type="button">Load Factory</button>
+      <button id="loadCampaignsBtn" type="button">Campaigns</button>
+    </section>
+
     <section class="workspace">
       <aside class="side-panel" aria-label="Account information">
         <div class="panel-block">
@@ -102,10 +109,65 @@
 
       <section class="main-panel">
         <div class="tabs" role="tablist" aria-label="Actions">
+          <button class="tab-button" type="button" data-tab="create">Create</button>
           <button class="tab-button active" type="button" data-tab="donor">Donor</button>
           <button class="tab-button" type="button" data-tab="charity">Charity</button>
           <button class="tab-button" type="button" data-tab="verifier">Verifier</button>
           <button class="tab-button" type="button" data-tab="milestones">Milestones</button>
+        </div>
+
+        <div id="create" class="tab-page">
+          <div class="admin-banner">
+            <span>Factory Admin</span>
+            <strong id="factoryAdminText">Load factory to check admin</strong>
+          </div>
+
+          <form id="createCampaignForm" class="action-form campaign-form">
+            <label for="newCharityAddress">Charity Address</label>
+            <input id="newCharityAddress" type="text" spellcheck="false" placeholder="0x...">
+
+            <div class="triple-grid">
+              <div>
+                <label for="newVerifier1">Verifier 1</label>
+                <input id="newVerifier1" type="text" spellcheck="false" placeholder="0x...">
+              </div>
+              <div>
+                <label for="newVerifier2">Verifier 2</label>
+                <input id="newVerifier2" type="text" spellcheck="false" placeholder="0x...">
+              </div>
+              <div>
+                <label for="newVerifier3">Verifier 3</label>
+                <input id="newVerifier3" type="text" spellcheck="false" placeholder="0x...">
+              </div>
+            </div>
+
+            <div class="inline-control">
+              <div>
+                <label for="newChallengePeriod">Challenge Period (seconds)</label>
+                <input id="newChallengePeriod" type="number" min="1" step="1" value="60">
+              </div>
+              <div>
+                <label for="newFundingDays">Funding Duration (days)</label>
+                <input id="newFundingDays" type="number" min="1" step="1" value="7">
+              </div>
+            </div>
+
+            <div class="form-row-title">
+              <h2>Milestones</h2>
+              <button id="addMilestoneRowBtn" type="button">Add Milestone</button>
+            </div>
+            <div id="newMilestoneRows" class="milestone-editor"></div>
+
+            <button type="submit">Create Campaign</button>
+          </form>
+
+          <div class="campaign-picker">
+            <div class="activity-header">
+              <h2>Deployed Campaigns</h2>
+              <button id="refreshCampaignsBtn" type="button">Refresh</button>
+            </div>
+            <div id="campaignList" class="campaign-list"></div>
+          </div>
         </div>
 
         <div id="donor" class="tab-page active">
