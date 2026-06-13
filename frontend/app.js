@@ -25,6 +25,14 @@ const CONTRACT_ABI = [
   "event MilestoneClaimed(uint256 indexed milestoneId,address indexed charity,uint256 amount)"
 ];
 
+const FACTORY_ABI = [
+  "function admin() view returns (address)",
+  "function createCampaign(address charity,address[3] verifiers,uint256[] amounts,string[] purposes,uint256 challengePeriod,uint256 fundingDeadline) returns (address campaign)",
+  "function campaignCount() view returns (uint256)",
+  "function getCampaign(uint256 campaignId) view returns (address campaign,address creator,address charity,uint256 fundingGoal,uint256 fundingDeadline,uint256 createdAt)",
+  "event CampaignCreated(uint256 indexed campaignId,address indexed campaign,address indexed creator,address charity,uint256 fundingGoal,uint256 fundingDeadline)"
+];
+
 const STATE_NAMES = ["Planned", "Submitted", "Disputed", "Approved", "Released"];
 
 const state = {
@@ -33,7 +41,10 @@ const state = {
   provider: null,
   signer: null,
   contract: null,
+  factory: null,
+  factoryAdmin: "",
   contractAddress: localStorage.getItem("charityFlowContract") || "",
+  factoryAddress: localStorage.getItem("charityFlowFactory") || "",
   milestoneCount: 0
 };
 
@@ -44,6 +55,9 @@ const ui = {
   connectWalletBtn: $("connectWalletBtn"),
   contractAddress: $("contractAddress"),
   loadContractBtn: $("loadContractBtn"),
+  factoryAddress: $("factoryAddress"),
+  loadFactoryBtn: $("loadFactoryBtn"),
+  loadCampaignsBtn: $("loadCampaignsBtn"),
   refreshBtn: $("refreshBtn"),
   contractShort: $("contractShort"),
   fundingGoal: $("fundingGoal"),
@@ -78,6 +92,21 @@ const ui = {
   clearLogBtn: $("clearLogBtn")
 };
 
+Object.assign(ui, {
+  createCampaignForm: $("createCampaignForm"),
+  factoryAdminText: $("factoryAdminText"),
+  newCharityAddress: $("newCharityAddress"),
+  newVerifier1: $("newVerifier1"),
+  newVerifier2: $("newVerifier2"),
+  newVerifier3: $("newVerifier3"),
+  newChallengePeriod: $("newChallengePeriod"),
+  newFundingDays: $("newFundingDays"),
+  newMilestoneRows: $("newMilestoneRows"),
+  addMilestoneRowBtn: $("addMilestoneRowBtn"),
+  refreshCampaignsBtn: $("refreshCampaignsBtn"),
+  campaignList: $("campaignList")
+});
+
 function log(message, kind = "info") {
   const item = document.createElement("li");
   item.className = kind;
@@ -105,6 +134,13 @@ function requireContract() {
   return state.contract;
 }
 
+function requireFactory() {
+  if (!state.factory) {
+    throw new Error("Enter a factory address and load the factory first.");
+  }
+  return state.factory;
+}
+
 function isAddress(value) {
   return hasEthers() && window.ethers.isAddress(value || "");
 }
@@ -126,6 +162,22 @@ function parseEth(value) {
   return window.ethers.parseEther(text);
 }
 
+function parsePositiveInteger(value, label) {
+  const text = String(value || "").trim();
+  if (!/^\d+$/.test(text) || BigInt(text) === 0n) {
+    throw new Error(`${label} must be a positive integer.`);
+  }
+  return BigInt(text);
+}
+
+function readMilestoneId(input, label = "Milestone ID") {
+  const text = String(input.value || "").trim();
+  if (!/^\d+$/.test(text)) {
+    throw new Error(`${label} is required.`);
+  }
+  return BigInt(text);
+}
+
 function buildProvider() {
   requireWallet();
   state.provider = new window.ethers.BrowserProvider(window.ethereum);
@@ -142,6 +194,9 @@ async function connectWallet() {
 
   if (state.contractAddress && isAddress(state.contractAddress)) {
     state.contract = new window.ethers.Contract(state.contractAddress, CONTRACT_ABI, state.signer);
+  }
+  if (state.factoryAddress && isAddress(state.factoryAddress)) {
+    state.factory = new window.ethers.Contract(state.factoryAddress, FACTORY_ABI, state.signer);
   }
 
   renderAccount();
@@ -173,6 +228,48 @@ async function loadContract() {
 
   await refreshSummary();
   log("Contract loaded.", "success");
+}
+
+async function loadFactory() {
+  requireWallet();
+  const address = ui.factoryAddress.value.trim();
+  if (!isAddress(address)) {
+    throw new Error("Invalid factory address.");
+  }
+
+  state.factoryAddress = address;
+  localStorage.setItem("charityFlowFactory", address);
+
+  if (!state.provider) {
+    state.provider = new window.ethers.BrowserProvider(window.ethereum);
+  }
+
+  const runner = state.signer || state.provider;
+  const code = await state.provider.getCode(address);
+  if (code === "0x") {
+    throw new Error("No factory contract code was found at this address on the current network.");
+  }
+
+  state.factory = new window.ethers.Contract(address, FACTORY_ABI, runner);
+
+  await refreshFactoryAdmin();
+  await loadCampaigns();
+  log("Factory loaded.", "success");
+}
+
+async function refreshFactoryAdmin() {
+  const factory = requireFactory();
+  state.factoryAdmin = await factory.admin();
+
+  const isAdmin = state.account
+    && state.factoryAdmin.toLowerCase() === state.account.toLowerCase();
+  ui.factoryAdminText.textContent = isAdmin
+    ? `${shortAddress(state.factoryAdmin)} - current wallet can create campaigns`
+    : `${shortAddress(state.factoryAdmin)} - only this wallet can create campaigns`;
+  ui.factoryAdminText.parentElement.classList.toggle("warning", Boolean(state.account) && !isAdmin);
+
+  const submitButton = ui.createCampaignForm.querySelector('button[type="submit"]');
+  submitButton.disabled = Boolean(state.account) && !isAdmin;
 }
 
 async function refreshSummary() {
@@ -231,6 +328,45 @@ async function loadMilestones() {
   }
 }
 
+async function loadCampaigns() {
+  const factory = requireFactory();
+  ui.campaignList.innerHTML = "";
+
+  const count = Number(await factory.campaignCount());
+  if (count === 0) {
+    ui.campaignList.textContent = "No campaigns have been deployed by this factory.";
+    return;
+  }
+
+  for (let index = 0; index < count; index++) {
+    const campaign = await factory.getCampaign(index);
+    ui.campaignList.appendChild(renderCampaignCard(index, campaign));
+  }
+}
+
+function renderCampaignCard(index, campaign) {
+  const card = document.createElement("article");
+  card.className = "campaign-card";
+
+  const deadline = new Date(Number(campaign.fundingDeadline) * 1000).toLocaleString();
+  card.innerHTML = `
+    <div>
+      <strong>Campaign #${index} - ${shortAddress(campaign.campaign)}</strong>
+      <span>Goal: ${formatEth(campaign.fundingGoal)} ETH</span>
+      <span>Charity: ${shortAddress(campaign.charity)} | Creator: ${shortAddress(campaign.creator)}</span>
+      <span>Funding deadline: ${escapeHtml(deadline)}</span>
+    </div>
+    <button type="button">Select</button>
+  `;
+
+  card.querySelector("button").addEventListener("click", () => {
+    ui.contractAddress.value = campaign.campaign;
+    run(loadContract);
+  });
+
+  return card;
+}
+
 function renderMilestoneCard(index, milestone, claimable, claimed) {
   const card = document.createElement("article");
   card.className = "milestone-card";
@@ -266,6 +402,138 @@ function renderMilestoneCard(index, milestone, claimable, claimed) {
   `;
 
   return card;
+}
+
+function addMilestoneRow(amount = "", purpose = "") {
+  const row = document.createElement("div");
+  row.className = "milestone-row";
+  row.innerHTML = `
+    <div>
+      <label>Amount (ETH)</label>
+      <input class="new-milestone-amount" type="number" min="0" step="0.001" value="${escapeHtml(amount)}" placeholder="0.01">
+    </div>
+    <div>
+      <label>Purpose</label>
+      <input class="new-milestone-purpose" type="text" value="${escapeHtml(purpose)}" placeholder="Mua nhu yeu pham dot 1">
+    </div>
+    <button type="button">Remove</button>
+  `;
+
+  row.querySelector("button").addEventListener("click", () => {
+    if (ui.newMilestoneRows.children.length <= 1) {
+      log("A campaign must have at least one milestone.", "error");
+      return;
+    }
+    row.remove();
+  });
+
+  ui.newMilestoneRows.appendChild(row);
+}
+
+function readCampaignForm() {
+  const charity = ui.newCharityAddress.value.trim();
+  const verifiers = [
+    ui.newVerifier1.value.trim(),
+    ui.newVerifier2.value.trim(),
+    ui.newVerifier3.value.trim()
+  ];
+
+  if (!isAddress(charity)) {
+    throw new Error("Invalid charity address.");
+  }
+  verifiers.forEach((verifier, index) => {
+    if (!isAddress(verifier)) {
+      throw new Error(`Invalid verifier ${index + 1} address.`);
+    }
+  });
+
+  const uniqueParticipants = new Set([charity.toLowerCase(), ...verifiers.map((item) => item.toLowerCase())]);
+  if (uniqueParticipants.size !== 4) {
+    throw new Error("Charity and verifier addresses must be different.");
+  }
+
+  const amounts = [];
+  const purposes = [];
+  ui.newMilestoneRows.querySelectorAll(".milestone-row").forEach((row, index) => {
+    const amount = row.querySelector(".new-milestone-amount").value.trim();
+    const purpose = row.querySelector(".new-milestone-purpose").value.trim();
+    if (!amount) {
+      throw new Error(`Milestone ${index} amount is required.`);
+    }
+    if (!purpose) {
+      throw new Error(`Milestone ${index} purpose is required.`);
+    }
+    amounts.push(parseEth(amount));
+    purposes.push(purpose);
+  });
+
+  if (amounts.length === 0) {
+    throw new Error("Add at least one milestone.");
+  }
+
+  const challengePeriod = parsePositiveInteger(ui.newChallengePeriod.value, "Challenge period");
+  const fundingDays = parsePositiveInteger(ui.newFundingDays.value, "Funding duration");
+  const fundingDeadline = BigInt(Math.floor(Date.now() / 1000)) + fundingDays * 24n * 60n * 60n;
+
+  return {
+    charity,
+    verifiers,
+    amounts,
+    purposes,
+    challengePeriod,
+    fundingDeadline
+  };
+}
+
+async function createCampaign() {
+  if (!state.signer) {
+    await connectWallet();
+  }
+  if (state.factory && state.factory.runner !== state.signer) {
+    state.factory = new window.ethers.Contract(state.factoryAddress, FACTORY_ABI, state.signer);
+  }
+
+  const factory = requireFactory();
+  await refreshFactoryAdmin();
+  if (!state.factoryAdmin || state.factoryAdmin.toLowerCase() !== state.account.toLowerCase()) {
+    throw new Error("Only the factory admin can create campaigns.");
+  }
+
+  const form = readCampaignForm();
+  const tx = await factory.createCampaign(
+    form.charity,
+    form.verifiers,
+    form.amounts,
+    form.purposes,
+    form.challengePeriod,
+    form.fundingDeadline
+  );
+  log(`Create campaign: ${tx.hash}`, "success");
+
+  const receipt = await tx.wait();
+  log(`Confirmed in block ${receipt.blockNumber}`, "success");
+
+  const event = receipt.logs
+    .map((entry) => {
+      try {
+        return factory.interface.parseLog(entry);
+      } catch (_) {
+        return null;
+      }
+    })
+    .find((entry) => entry && entry.name === "CampaignCreated");
+
+  if (event) {
+    const campaignAddress = event.args.campaign;
+    ui.contractAddress.value = campaignAddress;
+    state.contractAddress = campaignAddress;
+    localStorage.setItem("charityFlowContract", campaignAddress);
+    state.contract = new window.ethers.Contract(campaignAddress, CONTRACT_ABI, state.signer);
+    await refreshSummary();
+    log(`Campaign ready: ${shortAddress(campaignAddress)}`, "success");
+  }
+
+  await loadCampaigns();
 }
 
 async function sendTx(action, label) {
@@ -311,10 +579,19 @@ function bindEvents() {
 
   ui.connectWalletBtn.addEventListener("click", () => run(connectWallet));
   ui.loadContractBtn.addEventListener("click", () => run(loadContract));
+  ui.loadFactoryBtn.addEventListener("click", () => run(loadFactory));
+  ui.loadCampaignsBtn.addEventListener("click", () => run(loadCampaigns));
   ui.refreshBtn.addEventListener("click", () => run(refreshSummary));
   ui.loadMilestonesBtn.addEventListener("click", () => run(loadMilestones));
+  ui.refreshCampaignsBtn.addEventListener("click", () => run(loadCampaigns));
+  ui.addMilestoneRowBtn.addEventListener("click", () => addMilestoneRow());
   ui.clearLogBtn.addEventListener("click", () => {
     ui.activityLog.innerHTML = "";
+  });
+
+  ui.createCampaignForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    run(createCampaign);
   });
 
   ui.donateForm.addEventListener("submit", (event) => {
@@ -342,8 +619,9 @@ function bindEvents() {
   ui.submitForm.addEventListener("submit", (event) => {
     event.preventDefault();
     run(async () => {
+      const milestoneId = readMilestoneId(ui.submitMilestoneId);
       await sendTx(
-        (contract) => contract.submitMilestone(ui.submitMilestoneId.value, ui.evidenceCid.value.trim()),
+        (contract) => contract.submitMilestone(milestoneId, ui.evidenceCid.value.trim()),
         "Submit milestone"
       );
       await loadMilestones();
@@ -353,8 +631,9 @@ function bindEvents() {
   ui.resubmitForm.addEventListener("submit", (event) => {
     event.preventDefault();
     run(async () => {
+      const milestoneId = readMilestoneId(ui.resubmitMilestoneId);
       await sendTx(
-        (contract) => contract.resubmitMilestone(ui.resubmitMilestoneId.value, ui.resubmitEvidenceCid.value.trim()),
+        (contract) => contract.resubmitMilestone(milestoneId, ui.resubmitEvidenceCid.value.trim()),
         "Resubmit milestone"
       );
       await loadMilestones();
@@ -364,8 +643,9 @@ function bindEvents() {
   ui.claimForm.addEventListener("submit", (event) => {
     event.preventDefault();
     run(async () => {
+      const milestoneId = readMilestoneId(ui.claimMilestoneId);
       await sendTx(
-        (contract) => contract.claimMilestone(ui.claimMilestoneId.value),
+        (contract) => contract.claimMilestone(milestoneId),
         "Claim milestone"
       );
       await loadMilestones();
@@ -375,8 +655,9 @@ function bindEvents() {
   ui.rejectForm.addEventListener("submit", (event) => {
     event.preventDefault();
     run(async () => {
+      const milestoneId = readMilestoneId(ui.rejectMilestoneId);
       await sendTx(
-        (contract) => contract.reject(ui.rejectMilestoneId.value, ui.rejectReason.value.trim()),
+        (contract) => contract.reject(milestoneId, ui.rejectReason.value.trim()),
         "Reject"
       );
       await loadMilestones();
@@ -386,8 +667,9 @@ function bindEvents() {
   ui.resolveForm.addEventListener("submit", (event) => {
     event.preventDefault();
     run(async () => {
+      const milestoneId = readMilestoneId(ui.resolveMilestoneId);
       await sendTx(
-        (contract) => contract.voteResolve(ui.resolveMilestoneId.value),
+        (contract) => contract.voteResolve(milestoneId),
         "Vote resolve"
       );
       await loadMilestones();
@@ -397,8 +679,9 @@ function bindEvents() {
   ui.releaseForm.addEventListener("submit", (event) => {
     event.preventDefault();
     run(async () => {
+      const milestoneId = readMilestoneId(ui.releaseMilestoneId);
       await sendTx(
-        (contract) => contract.release(ui.releaseMilestoneId.value),
+        (contract) => contract.release(milestoneId),
         "Release"
       );
       await loadMilestones();
@@ -414,6 +697,10 @@ function bindEvents() {
         state.contract = new window.ethers.Contract(state.contractAddress, CONTRACT_ABI, state.signer);
         run(refreshSummary);
       }
+      if (state.factoryAddress && state.signer) {
+        state.factory = new window.ethers.Contract(state.factoryAddress, FACTORY_ABI, state.signer);
+        run(refreshFactoryAdmin);
+      }
     });
 
     window.ethereum.on("chainChanged", (chainId) => {
@@ -421,6 +708,7 @@ function bindEvents() {
       state.provider = null;
       state.signer = null;
       state.contract = null;
+      state.factory = null;
       renderAccount();
       log("Network changed. Please reconnect and reload the contract.");
     });
@@ -442,10 +730,17 @@ function setBusy(isBusy) {
   document.querySelectorAll("button").forEach((button) => {
     button.disabled = isBusy;
   });
+  if (!isBusy && state.factoryAdmin && state.account) {
+    const isAdmin = state.factoryAdmin.toLowerCase() === state.account.toLowerCase();
+    ui.createCampaignForm.querySelector('button[type="submit"]').disabled = !isAdmin;
+  }
 }
 
 function init() {
   ui.contractAddress.value = state.contractAddress;
+  ui.factoryAddress.value = state.factoryAddress;
+  addMilestoneRow("0.01", "Mua nhu yeu pham dot 1");
+  addMilestoneRow("0.01", "Ho tro y te dot 2");
   bindEvents();
   renderAccount();
   if (!window.ethereum) {

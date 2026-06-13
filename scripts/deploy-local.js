@@ -22,8 +22,11 @@ async function main() {
     "Ho tro y te dot 2"
   ];
 
-  const CharityMilestoneFund = await ethers.getContractFactory("CharityMilestoneFund");
-  const fund = await CharityMilestoneFund.deploy(
+  const CharityCampaignFactory = await ethers.getContractFactory("CharityCampaignFactory");
+  const factory = await CharityCampaignFactory.deploy();
+  await factory.waitForDeployment();
+
+  const tx = await factory.createCampaign(
     await charity.getAddress(),
     verifierAddresses,
     amounts,
@@ -31,12 +34,19 @@ async function main() {
     challengePeriod,
     fundingDeadline
   );
+  await tx.wait();
 
-  await fund.waitForDeployment();
-
-  const address = await fund.getAddress();
+  const factoryAddress = await factory.getAddress();
+  const campaign = await factory.getCampaign(0);
+  const address = campaign.campaign;
+  const CharityMilestoneFund = await ethers.getContractFactory("CharityMilestoneFund");
+  const fund = CharityMilestoneFund.attach(address);
   const fundingGoal = await fund.fundingGoal();
 
+  console.log("CharityCampaignFactory deployed");
+  console.log("Factory :", factoryAddress);
+  console.log("Admin   :", await factory.admin());
+  console.log("");
   console.log("CharityMilestoneFund deployed");
   console.log("Contract:", address);
   console.log("Funding goal:", ethers.formatEther(fundingGoal), "ETH");
@@ -51,6 +61,7 @@ async function main() {
   console.log("Verifier3:", verifierAddresses[2]);
   console.log("Donor    :", await donor.getAddress());
   console.log("");
+  console.log("Paste Factory into frontend :", factoryAddress);
   console.log("Paste Contract into frontend:", address);
 }
 
