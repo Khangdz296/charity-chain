@@ -18,6 +18,8 @@ contract CharityCampaignFactory {
     }
 
     CampaignInfo[] private campaigns;
+    mapping(uint256 => bool) public isDeactivated;
+    mapping(uint256 => string) public deactivationReason;
 
     modifier onlyAdmin() {
         require(msg.sender == admin, "Only admin");
@@ -33,6 +35,17 @@ contract CharityCampaignFactory {
         uint256 fundingDeadline
     );
 
+    event CampaignDeactivated(
+        uint256 indexed campaignId,
+        address indexed campaign,
+        string reason
+    );
+
+    event CampaignReactivated(
+        uint256 indexed campaignId,
+        address indexed campaign
+    );
+
     constructor() {
         admin = msg.sender;
     }
@@ -45,7 +58,10 @@ contract CharityCampaignFactory {
         uint256 challengePeriod,
         uint256 fundingDeadline
     ) external onlyAdmin returns (address campaign) {
+        uint256 campaignId = campaigns.length;
         CharityMilestoneFund fund = new CharityMilestoneFund(
+            address(this),
+            campaignId,
             charity,
             verifiers,
             amounts,
@@ -55,7 +71,6 @@ contract CharityCampaignFactory {
         );
 
         campaign = address(fund);
-        uint256 campaignId = campaigns.length;
         campaigns.push(
             CampaignInfo({
                 campaign: campaign,
@@ -103,5 +118,30 @@ contract CharityCampaignFactory {
             info.fundingDeadline,
             info.createdAt
         );
+    }
+
+    function deactivateCampaign(uint256 campaignId, string calldata reason) external onlyAdmin {
+        require(campaignId < campaigns.length, "Invalid campaign");
+        require(!isDeactivated[campaignId], "Already deactivated");
+        require(bytes(reason).length > 0, "Reason required");
+        require(
+            !CharityMilestoneFund(payable(campaigns[campaignId].campaign)).hasAnyClaimedMilestone(),
+            "Cannot deactivate after funds have been claimed"
+        );
+
+        isDeactivated[campaignId] = true;
+        deactivationReason[campaignId] = reason;
+
+        emit CampaignDeactivated(campaignId, campaigns[campaignId].campaign, reason);
+    }
+
+    function reactivateCampaign(uint256 campaignId) external onlyAdmin {
+        require(campaignId < campaigns.length, "Invalid campaign");
+        require(isDeactivated[campaignId], "Not deactivated");
+
+        isDeactivated[campaignId] = false;
+        deactivationReason[campaignId] = "";
+
+        emit CampaignReactivated(campaignId, campaigns[campaignId].campaign);
     }
 }

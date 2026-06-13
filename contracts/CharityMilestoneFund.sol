@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+interface ICharityCampaignFactory {
+    function isDeactivated(uint256 campaignId) external view returns (bool);
+}
+
 /// @title CharityMilestoneFund
 /// @notice Demo contract for transparent charity disbursement by fixed milestones.
 contract CharityMilestoneFund {
@@ -22,6 +26,8 @@ contract CharityMilestoneFund {
         MilestoneState state;
     }
 
+    address public immutable factory;
+    uint256 public immutable campaignId;
     address payable public immutable charity;
     uint256 public immutable fundingGoal;
     uint256 public immutable challengePeriod;
@@ -57,6 +63,11 @@ contract CharityMilestoneFund {
         _;
     }
 
+    modifier onlyActiveCampaign() {
+        require(!_isDeactivated(), "Campaign is deactivated");
+        _;
+    }
+
     modifier nonReentrant() {
         require(!locked, "Reentrancy blocked");
         locked = true;
@@ -65,6 +76,8 @@ contract CharityMilestoneFund {
     }
 
     constructor(
+        address _factory,
+        uint256 _campaignId,
         address payable _charity,
         address[3] memory _verifiers,
         uint256[] memory _amounts,
@@ -72,12 +85,15 @@ contract CharityMilestoneFund {
         uint256 _challengePeriod,
         uint256 _fundingDeadline
     ) {
+        require(_factory != address(0), "Invalid factory");
         require(_charity != address(0), "Invalid charity");
         require(_amounts.length > 0, "No milestones");
         require(_amounts.length == _purposes.length, "Length mismatch");
         require(_challengePeriod > 0, "Invalid challenge period");
         require(_fundingDeadline > block.timestamp, "Invalid funding deadline");
 
+        factory = _factory;
+        campaignId = _campaignId;
         charity = _charity;
         challengePeriod = _challengePeriod;
         fundingDeadline = _fundingDeadline;
@@ -115,7 +131,7 @@ contract CharityMilestoneFund {
         donate();
     }
 
-    function donate() public payable nonReentrant {
+    function donate() public payable nonReentrant onlyActiveCampaign {
         require(msg.value > 0, "No ETH sent");
         require(block.timestamp <= fundingDeadline, "Funding deadline passed");
 
@@ -137,8 +153,10 @@ contract CharityMilestoneFund {
     }
 
     function refund() external nonReentrant {
-        require(block.timestamp > fundingDeadline, "Deadline not passed");
-        require(totalDonated < fundingGoal, "Goal was reached");
+        if (!_isDeactivated()) {
+            require(block.timestamp > fundingDeadline, "Deadline not passed");
+            require(totalDonated < fundingGoal, "Goal was reached");
+        }
 
         uint256 amount = donations[msg.sender];
         require(amount > 0, "No donation to refund");
@@ -152,7 +170,11 @@ contract CharityMilestoneFund {
         emit DonationRefunded(msg.sender, amount);
     }
 
-    function submitMilestone(uint256 milestoneId, string calldata evidenceCID) external onlyCharity {
+    function submitMilestone(uint256 milestoneId, string calldata evidenceCID)
+        external
+        onlyCharity
+        onlyActiveCampaign
+    {
         require(totalDonated == fundingGoal, "Funding not complete");
         require(bytes(evidenceCID).length > 0, "Empty evidence CID");
 
@@ -172,7 +194,11 @@ contract CharityMilestoneFund {
         emit MilestoneSubmitted(milestoneId, evidenceCID);
     }
 
-    function reject(uint256 milestoneId, string calldata reason) external onlyVerifier {
+    function reject(uint256 milestoneId, string calldata reason)
+        external
+        onlyVerifier
+        onlyActiveCampaign
+    {
         Milestone storage milestone = _milestone(milestoneId);
         require(milestone.state == MilestoneState.Submitted, "Not submitted");
         require(block.timestamp < milestone.submittedAt + challengePeriod, "Challenge period ended");
@@ -186,7 +212,11 @@ contract CharityMilestoneFund {
         emit MilestoneRejected(milestoneId, msg.sender, reason);
     }
 
-    function resubmitMilestone(uint256 milestoneId, string calldata newEvidenceCID) external onlyCharity {
+    function resubmitMilestone(uint256 milestoneId, string calldata newEvidenceCID)
+        external
+        onlyCharity
+        onlyActiveCampaign
+    {
         Milestone storage milestone = _milestone(milestoneId);
         require(milestone.state == MilestoneState.Disputed, "Not disputed");
         require(bytes(newEvidenceCID).length > 0, "Empty evidence CID");
@@ -207,7 +237,11 @@ contract CharityMilestoneFund {
         emit MilestoneSubmitted(milestoneId, newEvidenceCID);
     }
 
-    function voteResolve(uint256 milestoneId) external onlyVerifier {
+    function voteResolve(uint256 milestoneId)
+        external
+        onlyVerifier
+        onlyActiveCampaign
+    {
         Milestone storage milestone = _milestone(milestoneId);
         require(milestone.state == MilestoneState.Disputed, "Not disputed");
         require(!hasVotedResolve[milestoneId][msg.sender], "Already voted");
@@ -221,7 +255,7 @@ contract CharityMilestoneFund {
         }
     }
 
-    function release(uint256 milestoneId) external nonReentrant {
+    function release(uint256 milestoneId) external nonReentrant onlyActiveCampaign {
         Milestone storage milestone = _milestone(milestoneId);
         require(milestone.state != MilestoneState.Released, "Already released");
 
@@ -236,7 +270,11 @@ contract CharityMilestoneFund {
         emit MilestoneReleased(milestoneId, charity, milestone.amount);
     }
 
-    function claimMilestone(uint256 milestoneId) external nonReentrant {
+    function claimMilestone(uint256 milestoneId)
+        external
+        nonReentrant
+        onlyActiveCampaign
+    {
         require(msg.sender == charity, "Only charity");
         require(milestoneClaimable[milestoneId], "Not claimable");
         require(!milestoneClaimed[milestoneId], "Already claimed");
@@ -255,6 +293,15 @@ contract CharityMilestoneFund {
 
     function milestoneCount() external view returns (uint256) {
         return milestones.length;
+    }
+
+    function hasAnyClaimedMilestone() external view returns (bool) {
+        for (uint256 i = 0; i < milestones.length; i++) {
+            if (milestoneClaimed[i]) {
+                return true;
+            }
+        }
+        return false;
     }
 
     function getMilestone(uint256 milestoneId)
@@ -280,6 +327,10 @@ contract CharityMilestoneFund {
             milestone.resolveVoteCount,
             milestone.state
         );
+    }
+
+    function _isDeactivated() private view returns (bool) {
+        return ICharityCampaignFactory(factory).isDeactivated(campaignId);
     }
 
     function _milestone(uint256 milestoneId) private view returns (Milestone storage) {
