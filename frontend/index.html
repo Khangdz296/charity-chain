@@ -10,15 +10,15 @@
   <main class="app-shell">
     <section class="topbar" aria-label="Control bar">
       <div class="brand">
-        <div class="brand-mark" aria-hidden="true">CF</div>
+        <div class="brand-mark" aria-hidden="true">🔗</div>
         <div>
           <h1>Charity Flow</h1>
-          <p>Transparent milestone-based charity disbursement</p>
+          <p>🎯 Transparent milestone-based charity disbursement</p>
         </div>
       </div>
       <div class="wallet-panel">
-        <span id="networkBadge" class="badge">Not connected</span>
-        <button id="connectWalletBtn" class="primary-btn" type="button">Connect Wallet</button>
+        <span id="networkBadge" class="badge">🔌 Not connected</span>
+        <button id="connectWalletBtn" class="primary-btn" type="button">🔐 Connect Wallet</button>
       </div>
     </section>
 
@@ -36,23 +36,23 @@
       </div>
       <div class="summary-grid">
         <div class="metric">
-          <span>Contract</span>
+          <span>📄 Contract</span>
           <strong id="contractShort">Not loaded</strong>
         </div>
         <div class="metric">
-          <span>Funding Goal</span>
+          <span>🎯 Funding Goal</span>
           <strong id="fundingGoal">-- ETH</strong>
         </div>
         <div class="metric">
-          <span>Total Donated</span>
+          <span>💰 Total Donated</span>
           <strong id="totalDonated">-- ETH</strong>
         </div>
         <div class="metric">
-          <span>Milestones</span>
+          <span>🏆 Milestones</span>
           <strong id="milestoneCount">--</strong>
         </div>
         <div class="metric">
-          <span>Funding Deadline</span>
+          <span>⏰ Funding Deadline</span>
           <strong id="fundingDeadline">--</strong>
         </div>
       </div>
@@ -75,34 +75,34 @@
     <section class="workspace">
       <aside class="side-panel" aria-label="Account information">
         <div class="panel-block">
-          <h2>Account</h2>
+          <h2>👤 Account</h2>
           <dl>
             <div>
-              <dt>Connected Wallet</dt>
+              <dt>🔑 Connected Wallet</dt>
               <dd id="accountText">Not connected</dd>
             </div>
             <div>
-              <dt>Wallet Balance</dt>
+              <dt>💵 Wallet Balance</dt>
               <dd id="walletBalanceText">-- ETH</dd>
             </div>
             <div>
-              <dt>Charity</dt>
+              <dt>🏥 Charity</dt>
               <dd id="charityText">--</dd>
             </div>
             <div>
-              <dt>Verifier Role</dt>
+              <dt>✅ Verifier Role</dt>
               <dd id="verifierText">--</dd>
             </div>
           </dl>
         </div>
 
         <div class="panel-block">
-          <h2>Release Rules</h2>
+          <h2>📋 Release Rules</h2>
           <ul class="check-list">
-            <li>Funding goal has been reached</li>
-            <li>Milestone evidence CID is submitted</li>
-            <li>Challenge period ended or dispute resolved</li>
-            <li>Milestone has not been released before</li>
+            <li>✓ Funding goal has been reached</li>
+            <li>✓ Milestone evidence CID is submitted</li>
+            <li>✓ Challenge period ended or dispute resolved</li>
+            <li>✓ Milestone has not been released before</li>
           </ul>
         </div>
       </aside>
@@ -172,41 +172,41 @@
 
         <div id="donor" class="tab-page active">
           <form id="donateForm" class="action-form">
-            <label for="donateAmount">Donation Amount</label>
+            <label for="donateAmount">💰 Donation Amount</label>
             <div class="inline-control">
               <input id="donateAmount" type="number" min="0" step="0.001" placeholder="0.02">
-              <button type="submit">Donate</button>
+              <button type="submit">💝 Donate</button>
             </div>
           </form>
 
           <form id="refundForm" class="action-form compact-form">
-            <label>Request Refund (if funding failed)</label>
-            <button type="submit">Refund My Donation</button>
+            <label>🔄 Request Refund (if funding failed)</label>
+            <button type="submit">↩️ Refund My Donation</button>
           </form>
         </div>
 
         <div id="charity" class="tab-page">
           <form id="submitForm" class="action-form">
-            <label for="submitMilestoneId">Milestone ID</label>
+            <label for="submitMilestoneId">🏆 Milestone ID</label>
             <input id="submitMilestoneId" type="number" min="0" step="1" placeholder="0">
-            <label for="evidenceCid">Evidence IPFS CID</label>
+            <label for="evidenceCid">📎 Evidence IPFS CID</label>
             <input id="evidenceCid" type="text" placeholder="ipfs://bafy...">
-            <button type="submit">Submit Milestone</button>
+            <button type="submit">📤 Submit Milestone</button>
           </form>
 
           <form id="resubmitForm" class="action-form">
-            <label for="resubmitMilestoneId">Resubmit Disputed Milestone ID</label>
+            <label for="resubmitMilestoneId">🔄 Resubmit Disputed Milestone ID</label>
             <input id="resubmitMilestoneId" type="number" min="0" step="1" placeholder="0">
-            <label for="resubmitEvidenceCid">New Evidence IPFS CID</label>
+            <label for="resubmitEvidenceCid">📎 New Evidence IPFS CID</label>
             <input id="resubmitEvidenceCid" type="text" placeholder="ipfs://bafy...">
-            <button type="submit">Resubmit Milestone</button>
+            <button type="submit">🔄 Resubmit Milestone</button>
           </form>
 
           <form id="claimForm" class="action-form compact-form">
-            <label for="claimMilestoneId">Claim Released Milestone ID</label>
+            <label for="claimMilestoneId">💰 Claim Released Milestone ID</label>
             <div class="inline-control">
               <input id="claimMilestoneId" type="number" min="0" step="1" placeholder="0">
-              <button type="submit">Claim Funds</button>
+              <button type="submit">💸 Claim Funds</button>
             </div>
           </form>
         </div>
@@ -214,32 +214,32 @@
         <div id="verifier" class="tab-page">
           <form id="rejectForm" class="action-form split-form">
             <div>
-              <label for="rejectMilestoneId">Milestone ID</label>
+              <label for="rejectMilestoneId">🏆 Milestone ID</label>
               <input id="rejectMilestoneId" type="number" min="0" step="1" placeholder="0">
             </div>
             <div>
-              <label for="rejectReason">Rejection Reason</label>
+              <label for="rejectReason">❌ Rejection Reason</label>
               <input id="rejectReason" type="text" placeholder="Invoice cannot be verified">
             </div>
-            <button type="submit">Reject</button>
+            <button type="submit">❌ Reject</button>
           </form>
 
           <form id="resolveForm" class="action-form compact-form">
-            <label for="resolveMilestoneId">Milestone ID</label>
+            <label for="resolveMilestoneId">🏆 Milestone ID</label>
             <div class="inline-control">
               <input id="resolveMilestoneId" type="number" min="0" step="1" placeholder="0">
-              <button type="submit">Vote Resolve</button>
+              <button type="submit">✅ Vote Resolve</button>
             </div>
           </form>
         </div>
 
         <div id="milestones" class="tab-page">
           <div class="milestone-toolbar">
-            <button id="loadMilestonesBtn" type="button">Load Milestones</button>
+            <button id="loadMilestonesBtn" type="button">🔄 Load Milestones</button>
             <form id="releaseForm" class="release-form">
               <label for="releaseMilestoneId">Release ID</label>
               <input id="releaseMilestoneId" type="number" min="0" step="1" placeholder="0">
-              <button type="submit">Release</button>
+              <button type="submit">🚀 Release</button>
             </form>
           </div>
           <div id="milestoneList" class="milestone-list"></div>
@@ -249,8 +249,8 @@
 
     <section class="activity-panel" aria-label="Activity log">
       <div class="activity-header">
-        <h2>Activity Log</h2>
-        <button id="clearLogBtn" type="button">Clear</button>
+        <h2>📊 Activity Log</h2>
+        <button id="clearLogBtn" type="button">🗑️ Clear</button>
       </div>
       <ol id="activityLog"></ol>
     </section>

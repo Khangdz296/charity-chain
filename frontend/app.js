@@ -30,7 +30,13 @@ const FACTORY_ABI = [
   "function createCampaign(address charity,address[3] verifiers,uint256[] amounts,string[] purposes,uint256 challengePeriod,uint256 fundingDeadline) returns (address campaign)",
   "function campaignCount() view returns (uint256)",
   "function getCampaign(uint256 campaignId) view returns (address campaign,address creator,address charity,uint256 fundingGoal,uint256 fundingDeadline,uint256 createdAt)",
-  "event CampaignCreated(uint256 indexed campaignId,address indexed campaign,address indexed creator,address charity,uint256 fundingGoal,uint256 fundingDeadline)"
+  "function isDeactivated(uint256) view returns (bool)",
+  "function deactivationReason(uint256) view returns (string)",
+  "function deactivateCampaign(uint256 campaignId, string reason)",
+  "function reactivateCampaign(uint256 campaignId)",
+  "event CampaignCreated(uint256 indexed campaignId,address indexed campaign,address indexed creator,address charity,uint256 fundingGoal,uint256 fundingDeadline)",
+  "event CampaignDeactivated(uint256 indexed campaignId,address indexed campaign,string reason)",
+  "event CampaignReactivated(uint256 indexed campaignId,address indexed campaign)"
 ];
 
 const STATE_NAMES = ["Planned", "Submitted", "Disputed", "Approved", "Released"];
@@ -110,7 +116,8 @@ Object.assign(ui, {
 function log(message, kind = "info") {
   const item = document.createElement("li");
   item.className = kind;
-  item.textContent = `${new Date().toLocaleTimeString()} - ${message}`;
+  const icon = kind === "success" ? "✅" : kind === "error" ? "❌" : "ℹ️";
+  item.textContent = `${icon} ${new Date().toLocaleTimeString()} - ${message}`;
   ui.activityLog.prepend(item);
 }
 
@@ -201,6 +208,10 @@ async function connectWallet() {
 
   renderAccount();
   await refreshWalletBalance();
+  if (state.factory) {
+    await refreshFactoryAdmin();
+    await loadCampaigns();
+  }
   log(`Connected ${shortAddress(state.account)}`, "success");
 }
 
@@ -292,7 +303,20 @@ async function refreshSummary() {
   ui.milestoneCount.textContent = String(state.milestoneCount);
 
   const deadlineDate = new Date(Number(deadline) * 1000);
-  ui.fundingDeadline.textContent = deadlineDate.toLocaleString();
+
+  // Get current blockchain time
+  const currentBlock = await state.provider.getBlock("latest");
+  const currentTime = currentBlock.timestamp;
+
+  if (currentTime > Number(deadline)) {
+    ui.fundingDeadline.textContent = `${deadlineDate.toLocaleString()} ❌ PASSED`;
+  } else {
+    const remaining = Number(deadline) - currentTime;
+    const days = Math.floor(remaining / 86400);
+    const hours = Math.floor((remaining % 86400) / 3600);
+    const minutes = Math.floor((remaining % 3600) / 60);
+    ui.fundingDeadline.textContent = `${deadlineDate.toLocaleString()} (${days}d ${hours}h ${minutes}m left)`;
+  }
 
   if (state.account) {
     const isVerifier = await contract.isVerifier(state.account);
@@ -340,29 +364,65 @@ async function loadCampaigns() {
 
   for (let index = 0; index < count; index++) {
     const campaign = await factory.getCampaign(index);
-    ui.campaignList.appendChild(renderCampaignCard(index, campaign));
+    const isDeactivated = await factory.isDeactivated(index);
+    const deactivationReason = isDeactivated ? await factory.deactivationReason(index) : "";
+    ui.campaignList.appendChild(renderCampaignCard(index, campaign, isDeactivated, deactivationReason));
   }
 }
 
-function renderCampaignCard(index, campaign) {
+function renderCampaignCard(index, campaign, isDeactivated, deactivationReason) {
   const card = document.createElement("article");
   card.className = "campaign-card";
+  if (isDeactivated) {
+    card.classList.add("deactivated");
+  }
 
   const deadline = new Date(Number(campaign.fundingDeadline) * 1000).toLocaleString();
+  const statusBadge = isDeactivated
+    ? `<span class="status-badge deactivated">🚫 Deactivated</span>`
+    : `<span class="status-badge active">✅ Active</span>`;
+
+  const reasonText = isDeactivated
+    ? `<span class="deactivation-reason">Reason: ${escapeHtml(deactivationReason)}</span>`
+    : "";
+
   card.innerHTML = `
     <div>
-      <strong>Campaign #${index} - ${shortAddress(campaign.campaign)}</strong>
+      <strong>Campaign #${index} - ${shortAddress(campaign.campaign)} ${statusBadge}</strong>
       <span>Goal: ${formatEth(campaign.fundingGoal)} ETH</span>
       <span>Charity: ${shortAddress(campaign.charity)} | Creator: ${shortAddress(campaign.creator)}</span>
       <span>Funding deadline: ${escapeHtml(deadline)}</span>
+      ${reasonText}
     </div>
-    <button type="button">Select</button>
+    <div class="campaign-actions">
+      <button type="button" class="select-btn">Select</button>
+      ${state.account && state.factoryAdmin && state.account.toLowerCase() === state.factoryAdmin.toLowerCase() ?
+        (isDeactivated
+          ? `<button type="button" class="reactivate-btn" data-id="${index}">♻️ Reactivate</button>`
+          : `<button type="button" class="deactivate-btn" data-id="${index}">🚫 Deactivate</button>`
+        ) : ''
+      }
+    </div>
   `;
 
-  card.querySelector("button").addEventListener("click", () => {
+  card.querySelector(".select-btn").addEventListener("click", () => {
     ui.contractAddress.value = campaign.campaign;
     run(loadContract);
   });
+
+  const deactivateBtn = card.querySelector(".deactivate-btn");
+  if (deactivateBtn) {
+    deactivateBtn.addEventListener("click", () => {
+      run(() => deactivateCampaign(index));
+    });
+  }
+
+  const reactivateBtn = card.querySelector(".reactivate-btn");
+  if (reactivateBtn) {
+    reactivateBtn.addEventListener("click", () => {
+      run(() => reactivateCampaign(index));
+    });
+  }
 
   return card;
 }
@@ -536,6 +596,62 @@ async function createCampaign() {
   await loadCampaigns();
 }
 
+async function deactivateCampaign(campaignId) {
+  if (!state.signer) {
+    await connectWallet();
+  }
+  if (state.factory && state.factory.runner !== state.signer) {
+    state.factory = new window.ethers.Contract(state.factoryAddress, FACTORY_ABI, state.signer);
+  }
+
+  const factory = requireFactory();
+  await refreshFactoryAdmin();
+  if (!state.factoryAdmin || state.factoryAdmin.toLowerCase() !== state.account.toLowerCase()) {
+    throw new Error("Only the factory admin can deactivate campaigns.");
+  }
+
+  const reason = prompt("Enter reason for deactivation (e.g., 'Fraud detected', 'Deadline expired'):");
+  if (!reason || !reason.trim()) {
+    throw new Error("Deactivation reason is required.");
+  }
+
+  const tx = await factory.deactivateCampaign(campaignId, reason.trim());
+  log(`Deactivating campaign #${campaignId}: ${tx.hash}`, "success");
+
+  const receipt = await tx.wait();
+  log(`Campaign #${campaignId} deactivated in block ${receipt.blockNumber}`, "success");
+
+  await loadCampaigns();
+}
+
+async function reactivateCampaign(campaignId) {
+  if (!state.signer) {
+    await connectWallet();
+  }
+  if (state.factory && state.factory.runner !== state.signer) {
+    state.factory = new window.ethers.Contract(state.factoryAddress, FACTORY_ABI, state.signer);
+  }
+
+  const factory = requireFactory();
+  await refreshFactoryAdmin();
+  if (!state.factoryAdmin || state.factoryAdmin.toLowerCase() !== state.account.toLowerCase()) {
+    throw new Error("Only the factory admin can reactivate campaigns.");
+  }
+
+  const confirmed = confirm(`Reactivate campaign #${campaignId}?`);
+  if (!confirmed) {
+    return;
+  }
+
+  const tx = await factory.reactivateCampaign(campaignId);
+  log(`Reactivating campaign #${campaignId}: ${tx.hash}`, "success");
+
+  const receipt = await tx.wait();
+  log(`Campaign #${campaignId} reactivated in block ${receipt.blockNumber}`, "success");
+
+  await loadCampaigns();
+}
+
 async function sendTx(action, label) {
   if (!state.signer) {
     await connectWallet();
@@ -699,7 +815,10 @@ function bindEvents() {
       }
       if (state.factoryAddress && state.signer) {
         state.factory = new window.ethers.Contract(state.factoryAddress, FACTORY_ABI, state.signer);
-        run(refreshFactoryAdmin);
+        run(async () => {
+          await refreshFactoryAdmin();
+          await loadCampaigns();
+        });
       }
     });
 
@@ -729,6 +848,13 @@ async function run(task) {
 function setBusy(isBusy) {
   document.querySelectorAll("button").forEach((button) => {
     button.disabled = isBusy;
+    if (isBusy) {
+      button.style.cursor = 'wait';
+      button.style.opacity = '0.6';
+    } else {
+      button.style.cursor = '';
+      button.style.opacity = '';
+    }
   });
   if (!isBusy && state.factoryAdmin && state.account) {
     const isAdmin = state.factoryAdmin.toLowerCase() === state.account.toLowerCase();

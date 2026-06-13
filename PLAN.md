@@ -87,3 +87,81 @@ Mẫu trả lời khi bảo vệ đồ án:
 - [ ] (Optional, nếu còn thời gian) Thêm Tầng 3 Stake & Slashing vào code.
 - [ ] Thêm Tầng 4, 5 vào phần lập luận/hướng phát triển (mục 4 phần kết luận).
 - [ ] Vẽ sơ đồ flowchart/sequence diagram cho quy trình Tầng 2 (submit → challenge → release/dispute).
+
+---
+
+## 7. Kế hoạch triển khai: Factory-driven deactivation enforcement (2026-06-13)
+
+### Mục tiêu nghiệp vụ đã chốt
+- Áp dụng **cách 1**: mỗi `CharityMilestoneFund` biết `factory` và `campaignId`, rồi tự hỏi factory xem campaign có đang bị deactivate không.
+- Khi campaign bị deactivate, phải **chặn đồng bộ nghiệp vụ** trong campaign.
+- Khi campaign được reactivate, campaign phải **nhận donate trở lại** và các hành vi bị chặn trước đó hoạt động lại theo rule bình thường.
+- Khi campaign đang deactivate, donor được **refund khẩn**.
+- Admin **không được deactivate** campaign nếu đã có bất kỳ milestone nào được claim, để tránh trạng thái refund không đủ tiền.
+
+### Phạm vi chặn khi campaign bị deactivate
+Sẽ thêm modifier kiểu `onlyActiveCampaign` vào các hàm sau trong `CharityMilestoneFund.sol`:
+- `donate()` / `receive()`
+- `submitMilestone()`
+- `resubmitMilestone()`
+- `reject()`
+- `voteResolve()`
+- `release()`
+- `claimMilestone()`
+
+`refund()` sẽ là ngoại lệ:
+- nếu campaign đang deactivate, donor được refund ngay cả trước deadline;
+- nếu campaign không deactivate, giữ nguyên logic refund hiện tại.
+
+### Thay đổi contract
+1. **Factory interface trong campaign**
+   - Thêm interface tối thiểu trong `CharityMilestoneFund.sol` để gọi `isDeactivated(uint256)` từ factory.
+   - Thêm immutable fields: `factory` và `campaignId`.
+
+2. **Khởi tạo campaign từ factory**
+   - Sửa constructor `CharityMilestoneFund` để nhận thêm địa chỉ factory và campaign id.
+   - Trong `CharityCampaignFactory.createCampaign()`, xác định `campaignId = campaigns.length` trước khi deploy rồi truyền vào constructor.
+
+3. **Enforce trạng thái deactivate trong campaign**
+   - Thêm helper/modifier như `_isDeactivated()` / `onlyActiveCampaign` để kiểm tra trạng thái từ factory.
+   - Áp dụng modifier cho toàn bộ hàm nghiệp vụ cần chặn.
+   - Dùng message lỗi rõ ràng, nhất quán, ví dụ `Campaign is deactivated`.
+
+4. **Emergency refund**
+   - Nới logic `refund()` để cho phép hoàn tiền khi `factory.isDeactivated(campaignId) == true`.
+   - Vẫn chỉ cho refund số donor đã đóng góp, giữ `nonReentrant`, zero-out balance trước khi transfer.
+
+5. **Ngăn deactivate sau khi đã claim**
+   - Thêm view helper trong `CharityMilestoneFund.sol` để factory kiểm tra có milestone nào đã claim chưa, ví dụ `hasAnyClaimedMilestone()`.
+   - Trong `CharityCampaignFactory.deactivateCampaign()`, gọi sang campaign hiện tại và `require` chưa có claim nào.
+
+### Thay đổi frontend
+- Không cần đổi luồng chính của nút `Deactivate` / `Reactivate`; frontend đã gọi đúng factory.
+- Có thể cần cập nhật/giữ nguyên phần hiển thị lỗi để người dùng thấy các lỗi on-chain mới như:
+  - `Campaign is deactivated`
+  - `Cannot deactivate after funds have been claimed`
+- Sau khi reactivate, frontend hiện tại đã reload campaigns; donate sẽ hoạt động lại vì contract cho phép trở lại.
+
+### Cập nhật script kiểm thử
+Sẽ mở rộng `scripts/test-deactivate.js` để kiểm tra:
+- donate bị revert khi deactivated;
+- donate hoạt động lại sau reactivate;
+- submit/reject/voteResolve/release/claim bị revert khi deactivated;
+- refund khẩn hoạt động khi deactivated;
+- deactivate bị chặn nếu campaign đã có milestone được claim.
+
+Sẽ rà thêm `scripts/test-deadline.js` và `scripts/test-challenge-period.js` để chỉnh constructor/luồng tạo campaign nếu cần, nhưng cố gắng giữ nguyên intent test cũ.
+
+### Cách xác minh sau khi code
+- `hardhat compile`
+- chạy lần lượt:
+  - `node scripts/test-deactivate.js` hoặc `hardhat run scripts/test-deactivate.js`
+  - `hardhat run scripts/test-deadline.js`
+  - `hardhat run scripts/test-challenge-period.js`
+- nếu cần, kiểm tra nhanh frontend bằng cách load factory, deactivate một campaign, xác nhận donate bị revert; sau đó reactivate và donate thành công lại.
+
+### Rủi ro / điểm cần chú ý khi code
+- Tránh circular dependency bằng cách dùng interface tối thiểu trong campaign thay vì import full factory.
+- Vì `receive()` gọi `donate()`, chỉ cần chặn đúng tại `donate()` là ETH gửi trực tiếp cũng bị chặn.
+- Refund khẩn chỉ an toàn vì đã chốt rule **cấm deactivate sau khi có claim**.
+- Reactivate không cần migrate state; chỉ cần factory bỏ cờ `isDeactivated`, các hàm trong campaign sẽ tự hoạt động lại.
